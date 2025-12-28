@@ -530,7 +530,7 @@ class MaterialProcurementReviewTester:
             return False
 
         # Verify stats structure for mobile display
-        if isinstance(stats, dict) and 'total_requests' in stats:
+        if isinstance(stats, dict) and 'total' in stats:
             print("✅ Supervisor dashboard stats available for mobile")
         else:
             print("❌ Supervisor dashboard stats structure invalid")
