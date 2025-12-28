@@ -329,6 +329,65 @@ async def get_requests(current_user: dict = Depends(get_current_user)):
     requests = await db.material_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [MaterialRequestResponse(**r) for r in requests]
 
+@api_router.get("/requests/all", response_model=List[MaterialRequestResponse])
+async def get_all_requests(current_user: dict = Depends(get_current_user)):
+    """Get all requests for viewing (all users can see all requests)"""
+    requests = await db.material_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [MaterialRequestResponse(**r) for r in requests]
+
+# Model for updating request
+class MaterialRequestEdit(BaseModel):
+    material_name: str
+    quantity: int
+    project_name: str
+    reason: str
+    engineer_id: str
+
+@api_router.put("/requests/{request_id}/edit", response_model=MaterialRequestResponse)
+async def edit_request(
+    request_id: str,
+    edit_data: MaterialRequestEdit,
+    current_user: dict = Depends(get_current_user)
+):
+    """Edit a request - only supervisor can edit and only before engineer approval"""
+    if current_user["role"] != UserRole.SUPERVISOR:
+        raise HTTPException(status_code=403, detail="فقط المشرفين يمكنهم تعديل الطلبات")
+    
+    request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    
+    if request["supervisor_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="لا يمكنك تعديل طلب مشرف آخر")
+    
+    if request["status"] != RequestStatus.PENDING_ENGINEER:
+        raise HTTPException(status_code=400, detail="لا يمكن تعديل الطلب بعد اعتماده أو رفضه")
+    
+    # Get new engineer info if changed
+    engineer = await db.users.find_one({"id": edit_data.engineer_id}, {"_id": 0})
+    if not engineer or engineer["role"] != UserRole.ENGINEER:
+        raise HTTPException(status_code=400, detail="المهندس غير موجود")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "material_name": edit_data.material_name,
+        "quantity": edit_data.quantity,
+        "project_name": edit_data.project_name,
+        "reason": edit_data.reason,
+        "engineer_id": edit_data.engineer_id,
+        "engineer_name": engineer["name"],
+        "updated_at": now
+    }
+    
+    await db.material_requests.update_one(
+        {"id": request_id},
+        {"$set": update_data}
+    )
+    
+    updated_request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
+    return MaterialRequestResponse(**updated_request)
+
 @api_router.get("/requests/{request_id}", response_model=MaterialRequestResponse)
 async def get_request(request_id: str, current_user: dict = Depends(get_current_user)):
     request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
