@@ -201,6 +201,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Fixed by changing import style and using autoTable(doc, {...}) syntax. PDF now generates without errors"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: PDF export bug completely fixed. Tested clicking download button on purchase orders - no 'autoTable is not a function' error occurred. PDF generation working correctly. Bug fix successful."
 
   - task: "Procurement Manager Dashboard"
     implemented: true
