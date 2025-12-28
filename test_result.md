@@ -183,6 +183,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Fixed by moving ItemInput component inline instead of using memo. Tested typing 'حديد تسليح' - cursor stays in place"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Cursor focus bug completely fixed. Tested typing 'حديد تسليح' character by character - cursor remained focused throughout entire input process. No focus loss detected. Bug fix successful."
 
   - task: "Purchase Order PDF Export"
     implemented: true
