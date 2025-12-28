@@ -319,6 +319,11 @@ export const exportPurchaseOrderToPDF = (order) => {
           <td style="border: none; padding: 8px 0;"><span class="info-label">مدير المشتريات:</span> ${order.manager_name || '-'}</td>
           <td style="border: none; padding: 8px 0;"><span class="info-label">الحالة:</span> <span class="badge badge-blue">${getOrderStatusTextAr(order.status)}</span></td>
         </tr>
+        ${order.category_name ? `
+        <tr style="border: none;">
+          <td style="border: none; padding: 8px 0;" colspan="2"><span class="info-label">تصنيف الميزانية:</span> <span style="color: #ea580c; font-weight: bold;">${order.category_name}</span></td>
+        </tr>
+        ` : ''}
       </table>
     </div>
     
