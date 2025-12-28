@@ -1,5 +1,4 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2pdf from 'html2pdf.js';
 
 const formatDate = (dateString) => {
   if (!dateString) return '-';
@@ -29,17 +28,6 @@ const formatDateShort = (dateString) => {
   }
 };
 
-const getStatusText = (status) => {
-  const statusMap = {
-    pending_engineer: 'Pending Engineer',
-    approved_by_engineer: 'Approved',
-    rejected_by_engineer: 'Rejected',
-    purchase_order_issued: 'PO Issued',
-    partially_ordered: 'Partially Ordered'
-  };
-  return statusMap[status] || status;
-};
-
 const getStatusTextAr = (status) => {
   const statusMap = {
     pending_engineer: 'بانتظار المهندس',
@@ -47,15 +35,6 @@ const getStatusTextAr = (status) => {
     rejected_by_engineer: 'مرفوض',
     purchase_order_issued: 'تم إصدار أمر الشراء',
     partially_ordered: 'جاري الإصدار'
-  };
-  return statusMap[status] || status;
-};
-
-const getOrderStatusText = (status) => {
-  const statusMap = {
-    pending_approval: 'Pending Approval',
-    approved: 'Approved',
-    printed: 'Printed'
   };
   return statusMap[status] || status;
 };
@@ -69,252 +48,302 @@ const getOrderStatusTextAr = (status) => {
   return statusMap[status] || status;
 };
 
-export const exportRequestToPDF = (request) => {
-  const doc = new jsPDF();
-  
-  // Title
-  doc.setFontSize(20);
-  doc.setTextColor(234, 88, 12);
-  doc.text('Material Request', 105, 20, { align: 'center' });
-  doc.text('طلب مواد', 105, 28, { align: 'center' });
-  
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
-  doc.text(`Request #: ${request.id?.slice(0, 8).toUpperCase() || 'N/A'}`, 105, 36, { align: 'center' });
-  
-  doc.setLineWidth(0.5);
-  doc.setDrawColor(234, 88, 12);
-  doc.line(20, 40, 190, 40);
+const generatePDF = async (element, filename, options = {}) => {
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { 
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      letterRendering: true
+    },
+    jsPDF: { 
+      unit: 'mm', 
+      format: 'a4', 
+      orientation: options.landscape ? 'landscape' : 'portrait'
+    }
+  };
 
-  // Request Info
-  doc.setFontSize(11);
-  let y = 50;
-  
-  doc.text(`Project: ${request.project_name || '-'}`, 20, y);
-  doc.text(`Date: ${formatDateShort(request.created_at)}`, 120, y);
-  y += 8;
-  
-  doc.text(`Supervisor: ${request.supervisor_name || '-'}`, 20, y);
-  doc.text(`Engineer: ${request.engineer_name || '-'}`, 120, y);
-  y += 8;
-  
-  doc.text(`Status: ${getStatusText(request.status)}`, 20, y);
-  if (request.reason) {
-    doc.text(`Reason: ${request.reason}`, 120, y);
+  await html2pdf().set(opt).from(element).save();
+};
+
+const createPDFElement = (html) => {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  container.style.cssText = `
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    width: 210mm;
+    background: white;
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    direction: rtl;
+    text-align: right;
+  `;
+  document.body.appendChild(container);
+  return container;
+};
+
+const removePDFElement = (element) => {
+  if (element && element.parentNode) {
+    element.parentNode.removeChild(element);
   }
-  y += 15;
+};
 
-  // Items Table
-  doc.setFontSize(12);
-  doc.setTextColor(234, 88, 12);
-  doc.text('Items:', 20, y);
-  doc.setTextColor(0, 0, 0);
-  y += 5;
-
+export const exportRequestToPDF = async (request) => {
   const items = Array.isArray(request.items) ? request.items : [];
-  const tableData = items.map((item, idx) => [
-    idx + 1,
-    item.name || '-',
-    item.quantity || 0,
-    item.unit || 'pcs'
-  ]);
+  const itemsRows = items.map((item, idx) => `
+    <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#fff'};">
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; width: 40px;">${idx + 1}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0;">${item.name || '-'}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; width: 80px;">${item.quantity || 0}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; width: 80px;">${item.unit || 'قطعة'}</td>
+    </tr>
+  `).join('');
 
-  autoTable(doc, {
-    head: [['#', 'Material Name', 'Qty', 'Unit']],
-    body: tableData,
-    startY: y,
-    styles: { fontSize: 10, cellPadding: 3 },
-    headStyles: { fillColor: [234, 88, 12], textColor: 255 },
-    alternateRowStyles: { fillColor: [248, 250, 252] }
-  });
+  const html = `
+    <div style="padding: 20px; direction: rtl; text-align: right;">
+      <div style="border-bottom: 4px solid #ea580c; padding-bottom: 15px; margin-bottom: 25px; text-align: center;">
+        <h1 style="color: #ea580c; font-size: 32px; margin: 0 0 5px 0;">طلب مواد</h1>
+        <p style="color: #475569; font-size: 14px; margin: 0;">رقم الطلب: ${request.id?.slice(0, 8).toUpperCase() || '-'}</p>
+      </div>
+      
+      <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 8px 0; width: 50%;"><strong style="color: #64748b;">المشروع:</strong> <span style="color: #1e293b;">${request.project_name || '-'}</span></td>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">تاريخ الطلب:</strong> <span style="color: #1e293b;">${formatDate(request.created_at)}</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">المشرف:</strong> <span style="color: #1e293b;">${request.supervisor_name || '-'}</span></td>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">المهندس:</strong> <span style="color: #1e293b;">${request.engineer_name || '-'}</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">الحالة:</strong> <span style="background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 4px; font-size: 12px;">${getStatusTextAr(request.status)}</span></td>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">سبب الطلب:</strong> <span style="color: #1e293b;">${request.reason || '-'}</span></td>
+          </tr>
+        </table>
+      </div>
+      
+      <div style="margin-bottom: 25px;">
+        <h3 style="color: #ea580c; font-size: 16px; border-bottom: 2px solid #ea580c; padding-bottom: 8px; margin-bottom: 15px;">الأصناف المطلوبة</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #ea580c; color: white;">
+              <th style="padding: 12px; border: 1px solid #ea580c; width: 40px;">#</th>
+              <th style="padding: 12px; border: 1px solid #ea580c;">اسم المادة</th>
+              <th style="padding: 12px; border: 1px solid #ea580c; width: 80px;">الكمية</th>
+              <th style="padding: 12px; border: 1px solid #ea580c; width: 80px;">الوحدة</th>
+            </tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+        </table>
+      </div>
+      
+      ${request.rejection_reason ? `
+        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <strong style="color: #dc2626;">سبب الرفض:</strong> <span style="color: #7f1d1d;">${request.rejection_reason}</span>
+        </div>
+      ` : ''}
+      
+      <div style="border-top: 2px solid #e2e8f0; padding-top: 20px; margin-top: 30px; text-align: center; color: #64748b; font-size: 11px;">
+        <p style="margin: 0;">نظام إدارة طلبات المواد</p>
+        <p style="margin: 5px 0 0 0;">تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+      </div>
+    </div>
+  `;
 
-  // Rejection reason
-  if (request.rejection_reason) {
-    y = doc.lastAutoTable.finalY + 10;
-    doc.setTextColor(220, 38, 38);
-    doc.text(`Rejection Reason: ${request.rejection_reason}`, 20, y);
-    doc.setTextColor(0, 0, 0);
+  const element = createPDFElement(html);
+  try {
+    await generatePDF(element, `طلب_مواد_${request.id?.slice(0, 8) || 'request'}.pdf`);
+  } finally {
+    removePDFElement(element);
   }
-
-  // Footer
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Material Request Management System', 105, 285, { align: 'center' });
-
-  doc.save(`request_${request.id?.slice(0, 8) || 'doc'}.pdf`);
 };
 
-export const exportPurchaseOrderToPDF = (order) => {
-  const doc = new jsPDF();
-  
-  // Header
-  doc.setDrawColor(234, 88, 12);
-  doc.setLineWidth(2);
-  doc.line(20, 15, 190, 15);
-  
-  // Title
-  doc.setFontSize(22);
-  doc.setTextColor(234, 88, 12);
-  doc.text('Purchase Order', 105, 25, { align: 'center' });
-  doc.text('أمر شراء', 105, 33, { align: 'center' });
-  
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(11);
-  doc.text(`PO #: ${order.id?.slice(0, 8).toUpperCase() || 'N/A'}`, 105, 42, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Request #: ${order.request_id?.slice(0, 8).toUpperCase() || 'N/A'}`, 105, 48, { align: 'center' });
-  
-  doc.setLineWidth(0.5);
-  doc.setDrawColor(234, 88, 12);
-  doc.line(20, 52, 190, 52);
-
-  // Order Info
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(11);
-  let y = 62;
-  
-  doc.text(`Project: ${order.project_name || '-'}`, 20, y);
-  doc.text(`Issue Date: ${formatDateShort(order.created_at)}`, 120, y);
-  y += 8;
-  
-  doc.text(`Supplier: ${order.supplier_name || '-'}`, 20, y);
-  doc.text(`Manager: ${order.manager_name || '-'}`, 120, y);
-  y += 8;
-  
-  doc.text(`Status: ${getOrderStatusText(order.status)}`, 20, y);
-  if (order.approved_at) {
-    doc.text(`Approved: ${formatDateShort(order.approved_at)}`, 120, y);
-  }
-  y += 15;
-
-  // Items Table
-  doc.setFontSize(12);
-  doc.setTextColor(234, 88, 12);
-  doc.text('Items:', 20, y);
-  doc.setTextColor(0, 0, 0);
-  y += 5;
-
+export const exportPurchaseOrderToPDF = async (order) => {
   const items = Array.isArray(order.items) ? order.items : [];
-  const tableData = items.map((item, idx) => [
-    idx + 1,
-    item.name || '-',
-    item.quantity || 0,
-    item.unit || 'pcs'
-  ]);
+  const itemsRows = items.map((item, idx) => `
+    <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#fff'};">
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; width: 40px;">${idx + 1}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0;">${item.name || '-'}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; width: 80px;">${item.quantity || 0}</td>
+      <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; width: 80px;">${item.unit || 'قطعة'}</td>
+    </tr>
+  `).join('');
 
-  autoTable(doc, {
-    head: [['#', 'Material Name', 'Qty', 'Unit']],
-    body: tableData,
-    startY: y,
-    styles: { fontSize: 10, cellPadding: 3 },
-    headStyles: { fillColor: [234, 88, 12], textColor: 255 },
-    alternateRowStyles: { fillColor: [248, 250, 252] }
-  });
+  const html = `
+    <div style="padding: 20px; direction: rtl; text-align: right;">
+      <div style="border: 4px solid #ea580c; border-radius: 0; padding: 20px; margin-bottom: 25px; text-align: center;">
+        <h1 style="color: #ea580c; font-size: 36px; margin: 0 0 10px 0;">أمر شراء</h1>
+        <p style="color: #1e293b; font-size: 16px; margin: 0; font-weight: bold;">رقم الأمر: ${order.id?.slice(0, 8).toUpperCase() || '-'}</p>
+        <p style="color: #64748b; font-size: 13px; margin: 5px 0 0 0;">رقم الطلب: ${order.request_id?.slice(0, 8).toUpperCase() || '-'}</p>
+      </div>
+      
+      <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 8px 0; width: 50%;"><strong style="color: #64748b;">المشروع:</strong> <span style="color: #1e293b;">${order.project_name || '-'}</span></td>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">تاريخ الإصدار:</strong> <span style="color: #1e293b;">${formatDate(order.created_at)}</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">المورد:</strong> <span style="background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 4px;">${order.supplier_name || '-'}</span></td>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">مدير المشتريات:</strong> <span style="color: #1e293b;">${order.manager_name || '-'}</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0;"><strong style="color: #64748b;">الحالة:</strong> <span style="background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 4px; font-size: 12px;">${getOrderStatusTextAr(order.status)}</span></td>
+            <td style="padding: 8px 0;">${order.approved_at ? `<strong style="color: #64748b;">تاريخ الاعتماد:</strong> <span style="color: #1e293b;">${formatDate(order.approved_at)}</span>` : ''}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <div style="margin-bottom: 25px;">
+        <h3 style="color: #ea580c; font-size: 16px; border-bottom: 2px solid #ea580c; padding-bottom: 8px; margin-bottom: 15px;">المواد</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #ea580c; color: white;">
+              <th style="padding: 12px; border: 1px solid #ea580c; width: 40px;">#</th>
+              <th style="padding: 12px; border: 1px solid #ea580c;">اسم المادة</th>
+              <th style="padding: 12px; border: 1px solid #ea580c; width: 80px;">الكمية</th>
+              <th style="padding: 12px; border: 1px solid #ea580c; width: 80px;">الوحدة</th>
+            </tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+        </table>
+      </div>
+      
+      ${order.notes ? `
+        <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+          <strong style="color: #92400e;">ملاحظات:</strong> <span style="color: #78350f;">${order.notes}</span>
+        </div>
+      ` : ''}
+      
+      <div style="display: flex; justify-content: space-between; margin-top: 60px; padding: 0 30px;">
+        <div style="text-align: center; width: 45%;">
+          <div style="border-top: 2px solid #94a3b8; padding-top: 10px; margin-top: 50px;">
+            <p style="margin: 0; color: #64748b; font-size: 13px;">توقيع المورد</p>
+          </div>
+        </div>
+        <div style="text-align: center; width: 45%;">
+          <div style="border-top: 2px solid #94a3b8; padding-top: 10px; margin-top: 50px;">
+            <p style="margin: 0; color: #64748b; font-size: 13px;">توقيع مدير المشتريات</p>
+          </div>
+        </div>
+      </div>
+      
+      <div style="border-top: 2px solid #e2e8f0; padding-top: 20px; margin-top: 40px; text-align: center; color: #64748b; font-size: 11px;">
+        <p style="margin: 0;">نظام إدارة طلبات المواد</p>
+        <p style="margin: 5px 0 0 0;">تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+      </div>
+    </div>
+  `;
 
-  y = doc.lastAutoTable.finalY + 10;
-
-  // Notes
-  if (order.notes) {
-    doc.text(`Notes: ${order.notes}`, 20, y);
-    y += 15;
+  const element = createPDFElement(html);
+  try {
+    await generatePDF(element, `امر_شراء_${order.id?.slice(0, 8) || 'order'}.pdf`);
+  } finally {
+    removePDFElement(element);
   }
-
-  // Signature Lines
-  y = Math.max(y + 20, 220);
-  doc.setDrawColor(150, 150, 150);
-  doc.setLineWidth(0.3);
-  
-  doc.line(20, y, 80, y);
-  doc.setFontSize(9);
-  doc.text('Supplier Signature', 50, y + 6, { align: 'center' });
-  
-  doc.line(130, y, 190, y);
-  doc.text('Manager Signature', 160, y + 6, { align: 'center' });
-
-  // Footer
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Material Request Management System', 105, 285, { align: 'center' });
-
-  doc.save(`PO_${order.id?.slice(0, 8) || 'doc'}.pdf`);
 };
 
-export const exportRequestsTableToPDF = (requests, title = 'Requests List') => {
-  const doc = new jsPDF('landscape');
-  
-  doc.setFontSize(16);
-  doc.setTextColor(234, 88, 12);
-  doc.text(title, 148, 15, { align: 'center' });
-  doc.setTextColor(0, 0, 0);
-
-  const tableData = requests.map(r => {
+export const exportRequestsTableToPDF = async (requests, title = 'قائمة الطلبات') => {
+  const rows = requests.map((r, idx) => {
     const items = Array.isArray(r.items) ? r.items : [];
     const itemsSummary = items.length > 0 
       ? (items.length === 1 ? items[0].name : `${items[0].name} +${items.length - 1}`)
       : '-';
-    return [
-      itemsSummary,
-      r.project_name || '-',
-      r.supervisor_name || '-',
-      r.engineer_name || '-',
-      getStatusText(r.status),
-      formatDateShort(r.created_at)
-    ];
-  });
+    return `
+      <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#fff'};">
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${itemsSummary}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${r.project_name || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${r.supervisor_name || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${r.engineer_name || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;"><span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 3px; font-size: 11px;">${getStatusTextAr(r.status)}</span></td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${formatDateShort(r.created_at)}</td>
+      </tr>
+    `;
+  }).join('');
 
-  autoTable(doc, {
-    head: [['Items', 'Project', 'Supervisor', 'Engineer', 'Status', 'Date']],
-    body: tableData,
-    startY: 25,
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [234, 88, 12], textColor: 255 },
-    alternateRowStyles: { fillColor: [248, 250, 252] }
-  });
+  const html = `
+    <div style="padding: 15px; direction: rtl; text-align: right;">
+      <h2 style="color: #ea580c; text-align: center; border-bottom: 3px solid #ea580c; padding-bottom: 10px; margin-bottom: 20px;">${title}</h2>
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="background: #ea580c; color: white;">
+            <th style="padding: 10px; border: 1px solid #ea580c;">الأصناف</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">المشروع</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">المشرف</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">المهندس</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">الحالة</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">التاريخ</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="text-align: center; color: #64748b; font-size: 10px; margin-top: 20px;">
+        نظام إدارة طلبات المواد - تاريخ التصدير: ${formatDateShort(new Date().toISOString())}
+      </p>
+    </div>
+  `;
 
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exported: ${formatDateShort(new Date().toISOString())}`, 148, 200, { align: 'center' });
-
-  doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+  const element = createPDFElement(html);
+  element.style.width = '297mm';
+  try {
+    await generatePDF(element, `${title.replace(/\s/g, '_')}.pdf`, { landscape: true });
+  } finally {
+    removePDFElement(element);
+  }
 };
 
-export const exportPurchaseOrdersTableToPDF = (orders) => {
-  const doc = new jsPDF('landscape');
-  
-  doc.setFontSize(16);
-  doc.setTextColor(234, 88, 12);
-  doc.text('Purchase Orders List', 148, 15, { align: 'center' });
-  doc.setTextColor(0, 0, 0);
-
-  const tableData = orders.map(o => {
+export const exportPurchaseOrdersTableToPDF = async (orders) => {
+  const rows = orders.map((o, idx) => {
     const items = Array.isArray(o.items) ? o.items : [];
     const itemsSummary = items.length > 0 
       ? (items.length === 1 ? items[0].name : `${items[0].name} +${items.length - 1}`)
       : '-';
-    return [
-      o.id?.slice(0, 8).toUpperCase() || '-',
-      itemsSummary,
-      o.project_name || '-',
-      o.supplier_name || '-',
-      o.manager_name || '-',
-      getOrderStatusText(o.status),
-      formatDateShort(o.created_at)
-    ];
-  });
+    return `
+      <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#fff'};">
+        <td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">${o.id?.slice(0, 8).toUpperCase() || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${itemsSummary}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${o.project_name || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;"><span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 3px;">${o.supplier_name || '-'}</span></td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${o.manager_name || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;"><span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 3px; font-size: 11px;">${getOrderStatusTextAr(o.status)}</span></td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">${formatDateShort(o.created_at)}</td>
+      </tr>
+    `;
+  }).join('');
 
-  autoTable(doc, {
-    head: [['PO #', 'Items', 'Project', 'Supplier', 'Manager', 'Status', 'Date']],
-    body: tableData,
-    startY: 25,
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [234, 88, 12], textColor: 255 },
-    alternateRowStyles: { fillColor: [248, 250, 252] }
-  });
+  const html = `
+    <div style="padding: 15px; direction: rtl; text-align: right;">
+      <h2 style="color: #ea580c; text-align: center; border-bottom: 3px solid #ea580c; padding-bottom: 10px; margin-bottom: 20px;">قائمة أوامر الشراء</h2>
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="background: #ea580c; color: white;">
+            <th style="padding: 10px; border: 1px solid #ea580c;">رقم الأمر</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">الأصناف</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">المشروع</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">المورد</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">مدير المشتريات</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">الحالة</th>
+            <th style="padding: 10px; border: 1px solid #ea580c;">التاريخ</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="text-align: center; color: #64748b; font-size: 10px; margin-top: 20px;">
+        نظام إدارة طلبات المواد - تاريخ التصدير: ${formatDateShort(new Date().toISOString())}
+      </p>
+    </div>
+  `;
 
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exported: ${formatDateShort(new Date().toISOString())}`, 148, 200, { align: 'center' });
-
-  doc.save('purchase_orders.pdf');
+  const element = createPDFElement(html);
+  element.style.width = '297mm';
+  try {
+    await generatePDF(element, 'اوامر_الشراء.pdf', { landscape: true });
+  } finally {
+    removePDFElement(element);
+  }
 };
