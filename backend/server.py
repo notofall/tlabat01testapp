@@ -341,7 +341,8 @@ async def get_requests(current_user: dict = Depends(get_current_user)):
     elif current_user["role"] == UserRole.ENGINEER:
         query["engineer_id"] = current_user["id"]
     elif current_user["role"] == UserRole.PROCUREMENT_MANAGER:
-        query["status"] = RequestStatus.APPROVED_BY_ENGINEER
+        # مدير المشتريات يرى الطلبات المعتمدة والتي بها أوامر شراء جزئية
+        query["status"] = {"$in": [RequestStatus.APPROVED_BY_ENGINEER, RequestStatus.PARTIALLY_ORDERED]}
     
     requests = await db.material_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [MaterialRequestResponse(**r) for r in requests]
