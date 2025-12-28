@@ -32,18 +32,22 @@ const SupervisorDashboard = () => {
   const [newItemName, setNewItemName] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("قطعة");
+  const [newItemEstPrice, setNewItemEstPrice] = useState("");
   const [projectName, setProjectName] = useState("");
   const [reason, setReason] = useState("");
   const [engineerId, setEngineerId] = useState("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
 
   // Edit form state
   const [editItems, setEditItems] = useState([]);
   const [editNewItemName, setEditNewItemName] = useState("");
   const [editNewItemQty, setEditNewItemQty] = useState("");
   const [editNewItemUnit, setEditNewItemUnit] = useState("قطعة");
+  const [editNewItemEstPrice, setEditNewItemEstPrice] = useState("");
   const [editProjectName, setEditProjectName] = useState("");
   const [editReason, setEditReason] = useState("");
   const [editEngineerId, setEditEngineerId] = useState("");
+  const [editExpectedDeliveryDate, setEditExpectedDeliveryDate] = useState("");
 
   const fetchData = async () => {
     try {
