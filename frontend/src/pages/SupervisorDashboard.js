@@ -19,6 +19,7 @@ const SupervisorDashboard = () => {
   const { user, logout, getAuthHeaders, API_URL } = useAuth();
   const [requests, setRequests] = useState([]);
   const [engineers, setEngineers] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [pendingDeliveries, setPendingDeliveries] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,7 @@ const SupervisorDashboard = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -38,10 +40,14 @@ const SupervisorDashboard = () => {
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("قطعة");
   const [newItemEstPrice, setNewItemEstPrice] = useState("");
-  const [projectName, setProjectName] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [reason, setReason] = useState("");
   const [engineerId, setEngineerId] = useState("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
+
+  // Project form state
+  const [newProject, setNewProject] = useState({ name: "", owner_name: "", description: "", location: "" });
+  const [editingProject, setEditingProject] = useState(null);
 
   // Edit form state
   const [editItems, setEditItems] = useState([]);
@@ -49,23 +55,25 @@ const SupervisorDashboard = () => {
   const [editNewItemQty, setEditNewItemQty] = useState("");
   const [editNewItemUnit, setEditNewItemUnit] = useState("قطعة");
   const [editNewItemEstPrice, setEditNewItemEstPrice] = useState("");
-  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectId, setEditProjectId] = useState("");
   const [editReason, setEditReason] = useState("");
   const [editEngineerId, setEditEngineerId] = useState("");
   const [editExpectedDeliveryDate, setEditExpectedDeliveryDate] = useState("");
 
   const fetchData = async () => {
     try {
-      const [requestsRes, engineersRes, statsRes, deliveriesRes] = await Promise.all([
+      const [requestsRes, engineersRes, statsRes, deliveriesRes, projectsRes] = await Promise.all([
         axios.get(`${API_URL}/requests`, getAuthHeaders()),
         axios.get(`${API_URL}/users/engineers`, getAuthHeaders()),
         axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
         axios.get(`${API_URL}/purchase-orders/pending-delivery`, getAuthHeaders()),
+        axios.get(`${API_URL}/projects`, getAuthHeaders()),
       ]);
       setRequests(requestsRes.data);
       setEngineers(engineersRes.data);
       setStats(statsRes.data);
       setPendingDeliveries(deliveriesRes.data || []);
+      setProjects(projectsRes.data || []);
     } catch (error) {
       toast.error("فشل في تحميل البيانات");
     } finally {
