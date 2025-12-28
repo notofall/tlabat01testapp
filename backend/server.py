@@ -1053,6 +1053,11 @@ async def create_material_request(
     if current_user["role"] != UserRole.SUPERVISOR:
         raise HTTPException(status_code=403, detail="فقط المشرفين يمكنهم إنشاء طلبات")
     
+    # Get project info
+    project = await db.projects.find_one({"id": request_data.project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=400, detail="المشروع غير موجود")
+    
     # Get engineer info
     engineer = await db.users.find_one({"id": request_data.engineer_id}, {"_id": 0})
     if not engineer or engineer["role"] != UserRole.ENGINEER:
@@ -1072,7 +1077,8 @@ async def create_material_request(
         "request_number": request_number,
         "request_seq": request_seq,
         "items": items_list,
-        "project_name": request_data.project_name,
+        "project_id": request_data.project_id,
+        "project_name": project["name"],
         "reason": request_data.reason,
         "supervisor_id": current_user["id"],
         "supervisor_name": current_user["name"],
@@ -1087,6 +1093,15 @@ async def create_material_request(
     
     await db.material_requests.insert_one(request_doc)
     
+    # Log audit
+    await log_audit(
+        entity_type="request",
+        entity_id=request_id,
+        action="create",
+        user=current_user,
+        description=f"إنشاء طلب مواد جديد #{request_number} للمشروع {project['name']}"
+    )
+    
     # Build items list for email
     items_html = "".join([f"<li>{item.name} - {item.quantity} {item.unit}</li>" for item in request_data.items])
     
@@ -1099,7 +1114,7 @@ async def create_material_request(
         <p><strong>رقم الطلب:</strong> {request_number}</p>
         <p><strong>المواد المطلوبة:</strong></p>
         <ul>{items_html}</ul>
-        <p><strong>المشروع:</strong> {request_data.project_name}</p>
+        <p><strong>المشروع:</strong> {project['name']}</p>
         <p><strong>السبب:</strong> {request_data.reason}</p>
         <p><strong>المشرف:</strong> {current_user['name']}</p>
     </div>
