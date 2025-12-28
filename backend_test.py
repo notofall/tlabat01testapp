@@ -381,8 +381,8 @@ def main():
     
     tester = MaterialRequestAPITester()
     
-    # Run full workflow test
-    workflow_success = tester.run_full_workflow_test()
+    # Run new features test
+    workflow_success = tester.run_new_features_test()
     
     # Print summary
     print("\n" + "=" * 70)
