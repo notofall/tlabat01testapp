@@ -168,6 +168,54 @@ backend:
         agent: "testing"
         comment: "Verified purchase order creation by procurement manager. POST /api/purchase-orders working correctly. Full workflow from request creation → engineer approval → PO creation tested successfully."
 
+  - task: "Multiple Purchase Orders per Request with Selected Items"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added feature to create POs with selected_items array. Manager can create multiple POs for same request by selecting specific items. Request status changes to partially_ordered when not all items are ordered."
+
+  - task: "Purchase Order Approval Workflow"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added PO approval workflow. New POs created with pending_approval status. Manager can approve using PUT /api/purchase-orders/{order_id}/approve. Status changes to approved after approval."
+
+  - task: "Printer Role and Print Workflow"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added printer role. Printer can see approved POs and mark them as printed using PUT /api/purchase-orders/{order_id}/print. Status changes to printed after printing."
+
+  - task: "Remaining Items API Endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/requests/{request_id}/remaining-items endpoint to get items not yet ordered for a request."
+
 frontend:
   - task: "Supervisor Dashboard - Create Material Request Form"
     implemented: true
