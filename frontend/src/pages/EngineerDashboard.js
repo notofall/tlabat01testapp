@@ -341,6 +341,13 @@ const EngineerDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Change Password Dialog */}
+      <ChangePasswordDialog 
+        open={passwordDialogOpen} 
+        onOpenChange={setPasswordDialogOpen}
+        token={localStorage.getItem("token")}
+      />
     </div>
   );
 };
