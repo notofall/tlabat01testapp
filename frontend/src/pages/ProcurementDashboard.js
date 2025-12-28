@@ -63,15 +63,19 @@ const ProcurementDashboard = () => {
   const [newCategory, setNewCategory] = useState({ name: "", project_name: "", estimated_budget: "" });
   const [editingCategory, setEditingCategory] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");  // For PO creation
+  const [projects, setProjects] = useState([]);
+  const [projectReportDialogOpen, setProjectReportDialogOpen] = useState(false);
+  const [selectedProjectReport, setSelectedProjectReport] = useState(null);
 
   const fetchData = async () => {
     try {
-      const [requestsRes, ordersRes, statsRes, suppliersRes, categoriesRes] = await Promise.all([
+      const [requestsRes, ordersRes, statsRes, suppliersRes, categoriesRes, projectsRes] = await Promise.all([
         axios.get(`${API_URL}/requests`, getAuthHeaders()),
         axios.get(`${API_URL}/purchase-orders`, getAuthHeaders()),
         axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
         axios.get(`${API_URL}/suppliers`, getAuthHeaders()),
         axios.get(`${API_URL}/budget-categories`, getAuthHeaders()),
+        axios.get(`${API_URL}/projects`, getAuthHeaders()),
       ]);
       setRequests(requestsRes.data);
       setAllOrders(ordersRes.data);
@@ -79,6 +83,7 @@ const ProcurementDashboard = () => {
       setStats(statsRes.data);
       setSuppliers(suppliersRes.data);
       setBudgetCategories(categoriesRes.data);
+      setProjects(projectsRes.data || []);
     } catch (error) {
       toast.error("فشل في تحميل البيانات");
     } finally {
