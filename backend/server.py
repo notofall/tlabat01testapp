@@ -347,8 +347,8 @@ async def create_material_request(
     request_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
-    # Get next sequential request number for this supervisor
-    request_number = await get_next_request_number(current_user["id"])
+    # Get next sequential request number for this supervisor (e.g., A1, A2, B1...)
+    request_number, request_seq = await get_next_request_number(current_user["id"])
     
     # Convert items to dict format
     items_list = [item.model_dump() for item in request_data.items]
@@ -356,6 +356,7 @@ async def create_material_request(
     request_doc = {
         "id": request_id,
         "request_number": request_number,
+        "request_seq": request_seq,
         "items": items_list,
         "project_name": request_data.project_name,
         "reason": request_data.reason,
