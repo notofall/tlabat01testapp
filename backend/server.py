@@ -427,6 +427,86 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
     return [UserResponse(**u) for u in users]
 
+# ==================== SUPPLIERS ROUTES ====================
+
+@api_router.post("/suppliers", response_model=SupplierResponse)
+async def create_supplier(
+    supplier_data: SupplierCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """إنشاء مورد جديد - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه إضافة موردين")
+    
+    supplier_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    supplier_doc = {
+        "id": supplier_id,
+        "name": supplier_data.name,
+        "contact_person": supplier_data.contact_person,
+        "phone": supplier_data.phone,
+        "email": supplier_data.email,
+        "address": supplier_data.address,
+        "notes": supplier_data.notes,
+        "created_at": now
+    }
+    
+    await db.suppliers.insert_one(supplier_doc)
+    return SupplierResponse(**{k: v for k, v in supplier_doc.items() if k != "_id"})
+
+@api_router.get("/suppliers", response_model=List[SupplierResponse])
+async def get_suppliers(current_user: dict = Depends(get_current_user)):
+    """الحصول على قائمة الموردين"""
+    suppliers = await db.suppliers.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    return [SupplierResponse(**s) for s in suppliers]
+
+@api_router.get("/suppliers/{supplier_id}", response_model=SupplierResponse)
+async def get_supplier(supplier_id: str, current_user: dict = Depends(get_current_user)):
+    """الحصول على بيانات مورد محدد"""
+    supplier = await db.suppliers.find_one({"id": supplier_id}, {"_id": 0})
+    if not supplier:
+        raise HTTPException(status_code=404, detail="المورد غير موجود")
+    return SupplierResponse(**supplier)
+
+@api_router.put("/suppliers/{supplier_id}", response_model=SupplierResponse)
+async def update_supplier(
+    supplier_id: str,
+    supplier_data: SupplierCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث بيانات مورد"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه تعديل الموردين")
+    
+    supplier = await db.suppliers.find_one({"id": supplier_id}, {"_id": 0})
+    if not supplier:
+        raise HTTPException(status_code=404, detail="المورد غير موجود")
+    
+    update_data = {
+        "name": supplier_data.name,
+        "contact_person": supplier_data.contact_person,
+        "phone": supplier_data.phone,
+        "email": supplier_data.email,
+        "address": supplier_data.address,
+        "notes": supplier_data.notes
+    }
+    
+    await db.suppliers.update_one({"id": supplier_id}, {"$set": update_data})
+    updated = await db.suppliers.find_one({"id": supplier_id}, {"_id": 0})
+    return SupplierResponse(**updated)
+
+@api_router.delete("/suppliers/{supplier_id}")
+async def delete_supplier(supplier_id: str, current_user: dict = Depends(get_current_user)):
+    """حذف مورد"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه حذف الموردين")
+    
+    result = await db.suppliers.delete_one({"id": supplier_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="المورد غير موجود")
+    return {"message": "تم حذف المورد بنجاح"}
+
 # ==================== MATERIAL REQUESTS ROUTES ====================
 
 @api_router.post("/requests", response_model=MaterialRequestResponse)
