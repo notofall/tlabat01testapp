@@ -582,7 +582,7 @@ const ProcurementDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Order Dialog - Updated with item selection */}
+      {/* Create Order Dialog - Shows only remaining items */}
       <Dialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen}>
         <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4" dir="rtl">
           <DialogHeader><DialogTitle className="text-center">إصدار أمر شراء</DialogTitle></DialogHeader>
@@ -594,55 +594,73 @@ const ProcurementDashboard = () => {
                   <span className="font-medium">{selectedRequest.project_name}</span>
                 </div>
                 <div className="pt-2">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-slate-500 font-medium">اختر الأصناف للمورد:</p>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={selectAllItems} className="h-6 text-xs px-2">الكل</Button>
-                      <Button size="sm" variant="outline" onClick={deselectAllItems} className="h-6 text-xs px-2">إلغاء</Button>
+                  {loadingItems ? (
+                    <div className="text-center py-4">
+                      <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <p className="text-slate-500 text-xs mt-2">جاري تحميل الأصناف...</p>
                     </div>
-                  </div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {selectedRequest.items?.map((item, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
-                          selectedItemIndices.includes(idx) 
-                            ? 'bg-green-50 border-green-300' 
-                            : 'bg-white border-slate-200 hover:bg-slate-50'
-                        }`}
-                        onClick={() => toggleItemSelection(idx)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Checkbox 
-                            checked={selectedItemIndices.includes(idx)}
-                            onCheckedChange={() => toggleItemSelection(idx)}
-                          />
-                          <span className="font-medium">{item.name}</span>
+                  ) : remainingItems.length === 0 ? (
+                    <div className="text-center py-4 bg-green-50 rounded-lg">
+                      <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                      <p className="text-green-700 font-medium">تم إصدار أوامر شراء لجميع الأصناف</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-slate-500 font-medium">الأصناف المتبقية ({remainingItems.length}):</p>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" onClick={selectAllItems} className="h-6 text-xs px-2">الكل</Button>
+                          <Button size="sm" variant="outline" onClick={deselectAllItems} className="h-6 text-xs px-2">إلغاء</Button>
                         </div>
-                        <span className="text-slate-600">{item.quantity} {item.unit}</span>
                       </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2 text-center">
-                    تم اختيار {selectedItemIndices.length} من {selectedRequest.items?.length} أصناف
-                  </p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {remainingItems.map((item) => (
+                          <div 
+                            key={item.index} 
+                            className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
+                              selectedItemIndices.includes(item.index) 
+                                ? 'bg-green-50 border-green-300' 
+                                : 'bg-white border-slate-200 hover:bg-slate-50'
+                            }`}
+                            onClick={() => toggleItemSelection(item.index)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Checkbox 
+                                checked={selectedItemIndices.includes(item.index)}
+                                onCheckedChange={() => toggleItemSelection(item.index)}
+                              />
+                              <span className="font-medium">{item.name}</span>
+                            </div>
+                            <span className="text-slate-600">{item.quantity} {item.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2 text-center">
+                        تم اختيار {selectedItemIndices.length} من {remainingItems.length} أصناف متبقية
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
-              <div>
-                <Label className="text-sm">اسم المورد</Label>
-                <Input placeholder="مثال: شركة الحديد" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="h-10 mt-1" />
-              </div>
-              <div>
-                <Label className="text-sm">ملاحظات (اختياري)</Label>
-                <Textarea placeholder="أي ملاحظات..." value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={2} className="mt-1" />
-              </div>
-              <Button 
-                className="w-full h-11 bg-orange-600 hover:bg-orange-700" 
-                onClick={handleCreateOrder} 
-                disabled={submitting || selectedItemIndices.length === 0}
-              >
-                {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />إصدار أمر شراء ({selectedItemIndices.length} صنف)</>}
-              </Button>
+              {remainingItems.length > 0 && (
+                <>
+                  <div>
+                    <Label className="text-sm">اسم المورد</Label>
+                    <Input placeholder="مثال: شركة الحديد" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="h-10 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-sm">ملاحظات (اختياري)</Label>
+                    <Textarea placeholder="أي ملاحظات..." value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={2} className="mt-1" />
+                  </div>
+                  <Button 
+                    className="w-full h-11 bg-orange-600 hover:bg-orange-700" 
+                    onClick={handleCreateOrder} 
+                    disabled={submitting || selectedItemIndices.length === 0}
+                  >
+                    {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />إصدار أمر شراء ({selectedItemIndices.length} صنف)</>}
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </DialogContent>
