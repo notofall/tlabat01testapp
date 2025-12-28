@@ -851,8 +851,11 @@ async def get_remaining_items(request_id: str, current_user: dict = Depends(get_
     
     all_items = request.get("items", [])
     
-    # Get all purchase orders for this request
-    existing_orders = await db.purchase_orders.find({"request_id": request_id}, {"_id": 0}).to_list(100)
+    # Get all purchase orders for this request (limited to 50 - reasonable max for single request)
+    existing_orders = await db.purchase_orders.find(
+        {"request_id": request_id}, 
+        {"_id": 0, "items": 1}
+    ).to_list(50)
     
     # Track which items have been ordered
     ordered_items = []
