@@ -10,13 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Package, LogOut, Clock, CheckCircle, RefreshCw, FileText, ShoppingCart, Truck, Eye, Download } from "lucide-react";
+import { Package, LogOut, Clock, CheckCircle, RefreshCw, FileText, ShoppingCart, Truck, Eye, Download, Calendar, Filter } from "lucide-react";
 import { exportRequestToPDF, exportPurchaseOrderToPDF, exportRequestsTableToPDF, exportPurchaseOrdersTableToPDF } from "../utils/pdfExport";
 
 const ProcurementDashboard = () => {
   const { user, logout, getAuthHeaders, API_URL } = useAuth();
   const [requests, setRequests] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -24,9 +25,16 @@ const ProcurementDashboard = () => {
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [viewRequestDialogOpen, setViewRequestDialogOpen] = useState(false);
   const [viewOrderDialogOpen, setViewOrderDialogOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [supplierName, setSupplierName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  
+  // Filter states
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [reportStartDate, setReportStartDate] = useState("");
+  const [reportEndDate, setReportEndDate] = useState("");
 
   const fetchData = async () => {
     try {
@@ -36,7 +44,8 @@ const ProcurementDashboard = () => {
         axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
       ]);
       setRequests(requestsRes.data);
-      setOrders(ordersRes.data);
+      setAllOrders(ordersRes.data);
+      setFilteredOrders(ordersRes.data);
       setStats(statsRes.data);
     } catch (error) {
       toast.error("فشل في تحميل البيانات");
@@ -47,11 +56,65 @@ const ProcurementDashboard = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  // Apply date filter
+  const applyFilter = () => {
+    let filtered = [...allOrders];
+    if (filterStartDate) {
+      const start = new Date(filterStartDate);
+      start.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(o => new Date(o.created_at) >= start);
+    }
+    if (filterEndDate) {
+      const end = new Date(filterEndDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(o => new Date(o.created_at) <= end);
+    }
+    setFilteredOrders(filtered);
+    toast.success(`تم عرض ${filtered.length} أمر شراء`);
+  };
+
+  const clearFilter = () => {
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilteredOrders(allOrders);
+  };
+
+  // Generate report
+  const generateReport = () => {
+    if (!reportStartDate || !reportEndDate) {
+      toast.error("الرجاء تحديد تاريخ البداية والنهاية");
+      return;
+    }
+    
+    const start = new Date(reportStartDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(reportEndDate);
+    end.setHours(23, 59, 59, 999);
+    
+    const reportOrders = allOrders.filter(o => {
+      const orderDate = new Date(o.created_at);
+      return orderDate >= start && orderDate <= end;
+    });
+
+    if (reportOrders.length === 0) {
+      toast.error("لا توجد أوامر شراء في هذه الفترة");
+      return;
+    }
+
+    exportPurchaseOrdersTableToPDF(reportOrders);
+    toast.success(`تم تصدير تقرير بـ ${reportOrders.length} أمر شراء`);
+    setReportDialogOpen(false);
+  };
+
   const handleCreateOrder = async () => {
     if (!supplierName.trim()) { toast.error("الرجاء إدخال اسم المورد"); return; }
     setSubmitting(true);
     try {
-      await axios.post(`${API_URL}/purchase-orders`, { request_id: selectedRequest.id, supplier_name: supplierName, notes: orderNotes }, getAuthHeaders());
+      await axios.post(`${API_URL}/purchase-orders`, { 
+        request_id: selectedRequest.id, 
+        supplier_name: supplierName, 
+        notes: orderNotes 
+      }, getAuthHeaders());
       toast.success("تم إصدار أمر الشراء بنجاح");
       setOrderDialogOpen(false);
       setSupplierName("");
@@ -65,134 +128,237 @@ const ProcurementDashboard = () => {
     }
   };
 
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-
-  const getItemsSummary = (items) => {
-    if (!items || items.length === 0) return "-";
-    if (items.length === 1) return `${items[0].name} (${items[0].quantity})`;
-    return `${items[0].name} + ${items.length - 1} أصناف أخرى`;
-  };
+  const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const formatDateFull = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  
+  const getItemsSummary = (items) => !items?.length ? "-" : items.length === 1 ? items[0].name : `${items[0].name} +${items.length - 1}`;
 
   const getStatusBadge = (status) => {
-    const statusMap = {
-      pending_engineer: { label: "بانتظار المهندس", variant: "warning" },
-      approved_by_engineer: { label: "معتمد من المهندس", variant: "success" },
-      rejected_by_engineer: { label: "مرفوض", variant: "destructive" },
-      purchase_order_issued: { label: "تم إصدار أمر الشراء", variant: "default" },
+    const map = {
+      approved_by_engineer: { label: "معتمد", color: "bg-green-100 text-green-800 border-green-300" },
+      purchase_order_issued: { label: "تم الإصدار", color: "bg-blue-100 text-blue-800 border-blue-300" },
     };
-    const statusInfo = statusMap[status] || { label: status, variant: "secondary" };
-    const variantClasses = {
-      warning: "bg-yellow-50 text-yellow-800 border-yellow-200",
-      success: "bg-green-50 text-green-800 border-green-200",
-      destructive: "bg-red-50 text-red-800 border-red-200",
-      default: "bg-blue-50 text-blue-800 border-blue-200",
-      secondary: "bg-slate-50 text-slate-800 border-slate-200",
-    };
-    return <Badge className={`${variantClasses[statusInfo.variant]} border font-medium`}>{statusInfo.label}</Badge>;
+    const info = map[status] || { label: status, color: "bg-slate-100 text-slate-800" };
+    return <Badge className={`${info.color} border text-xs`}>{info.label}</Badge>;
   };
 
   if (loading) {
-    return (<div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="text-center"><div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p className="text-slate-600 font-medium">جاري التحميل...</p></div></div>);
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-10 h-10 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div></div>;
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-slate-900 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-600 rounded-sm flex items-center justify-center"><Package className="w-6 h-6" /></div>
-              <div><h1 className="text-lg font-bold">نظام طلبات المواد</h1><p className="text-sm text-slate-400">لوحة تحكم مدير المشتريات</p></div>
+      {/* Header */}
+      <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-orange-600 rounded flex items-center justify-center">
+                <Package className="w-5 h-5" />
+              </div>
+              <div className="hidden sm:block">
+                <h1 className="text-sm font-bold">نظام طلبات المواد</h1>
+                <p className="text-xs text-slate-400">مدير المشتريات</p>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-slate-300">مرحباً، {user?.name}</span>
-              <Button variant="ghost" size="sm" onClick={logout} className="text-slate-300 hover:text-white hover:bg-slate-800"><LogOut className="w-4 h-4 ml-2" />خروج</Button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm text-slate-300 hidden sm:inline">{user?.name}</span>
+              <Button variant="ghost" size="sm" onClick={logout} className="text-slate-300 hover:text-white h-8 px-2">
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card className="border-r-4 border-r-yellow-500 hover-card"><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-500">طلبات تحتاج أمر شراء</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold text-yellow-600">{stats.pending_orders || 0}</div></CardContent></Card>
-          <Card className="border-r-4 border-r-green-500 hover-card"><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-500">أوامر الشراء المصدرة</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold text-green-600">{stats.total_orders || 0}</div></CardContent></Card>
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <Card className="border-r-4 border-yellow-500">
+            <CardContent className="p-3">
+              <p className="text-xs text-slate-500">طلبات معلقة</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.pending_orders || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-r-4 border-green-500">
+            <CardContent className="p-3">
+              <p className="text-xs text-slate-500">أوامر شراء</p>
+              <p className="text-2xl font-bold text-green-600">{stats.total_orders || 0}</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Approved Requests */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-6 h-6 text-yellow-600" />طلبات معتمدة تحتاج أمر شراء
-              {requests.length > 0 && <span className="bg-yellow-500 text-white text-sm px-2 py-1 rounded-full">{requests.length}</span>}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Clock className="w-5 h-5 text-yellow-600" />
+              طلبات معتمدة
+              {requests.length > 0 && <Badge className="bg-yellow-500 text-white">{requests.length}</Badge>}
             </h2>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => exportRequestsTableToPDF(requests, 'طلبات معتمدة')} className="border-slate-300" disabled={requests.length === 0}><Download className="w-4 h-4 ml-2" />تصدير</Button>
-              <Button variant="outline" onClick={fetchData} className="border-slate-300"><RefreshCw className="w-4 h-4 ml-2" />تحديث</Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={fetchData} className="h-8"><RefreshCw className="w-3 h-3" /></Button>
           </div>
 
           <Card className="shadow-sm">
             <CardContent className="p-0">
-              {requests.length === 0 ? (
-                <div className="text-center py-12"><CheckCircle className="w-16 h-16 text-green-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-600 mb-2">لا توجد طلبات معلقة</h3></div>
+              {!requests.length ? (
+                <div className="text-center py-8"><CheckCircle className="w-10 h-10 text-green-300 mx-auto mb-2" /><p className="text-slate-500 text-sm">لا توجد طلبات معلقة</p></div>
               ) : (
-                <Table>
-                  <TableHeader><TableRow className="bg-slate-50"><TableHead className="text-right font-bold">الأصناف</TableHead><TableHead className="text-right font-bold">المشروع</TableHead><TableHead className="text-right font-bold">المشرف</TableHead><TableHead className="text-right font-bold">المهندس</TableHead><TableHead className="text-right font-bold">التاريخ</TableHead><TableHead className="text-right font-bold">الإجراء</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {requests.map((request) => (
-                      <TableRow key={request.id} className="table-row-hover">
-                        <TableCell className="font-medium">{getItemsSummary(request.items)}</TableCell>
-                        <TableCell>{request.project_name}</TableCell>
-                        <TableCell>{request.supervisor_name}</TableCell>
-                        <TableCell>{request.engineer_name}</TableCell>
-                        <TableCell className="text-slate-500 text-sm">{formatDate(request.created_at)}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(request); setViewRequestDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4 text-slate-600" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => exportRequestToPDF(request)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
-                            <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => { setSelectedRequest(request); setOrderDialogOpen(true); }}><ShoppingCart className="w-4 h-4 ml-1" />إصدار أمر</Button>
+                <>
+                  {/* Mobile */}
+                  <div className="sm:hidden divide-y">
+                    {requests.map((req) => (
+                      <div key={req.id} className="p-3 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-sm">{getItemsSummary(req.items)}</p>
+                            <p className="text-xs text-slate-500">{req.project_name}</p>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-400">{formatDate(req.created_at)}</span>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
+                            <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => { setSelectedRequest(req); setOrderDialogOpen(true); }}>
+                              <ShoppingCart className="w-3 h-3 ml-1" />إصدار
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                  {/* Desktop */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <Table>
+                      <TableHeader><TableRow className="bg-slate-50">
+                        <TableHead className="text-right">الأصناف</TableHead>
+                        <TableHead className="text-right">المشروع</TableHead>
+                        <TableHead className="text-right">المشرف</TableHead>
+                        <TableHead className="text-right">التاريخ</TableHead>
+                        <TableHead className="text-right">الإجراء</TableHead>
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {requests.map((req) => (
+                          <TableRow key={req.id}>
+                            <TableCell className="font-medium">{getItemsSummary(req.items)}</TableCell>
+                            <TableCell>{req.project_name}</TableCell>
+                            <TableCell>{req.supervisor_name}</TableCell>
+                            <TableCell className="text-sm text-slate-500">{formatDate(req.created_at)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
+                                <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => { setSelectedRequest(req); setOrderDialogOpen(true); }}>
+                                  <ShoppingCart className="w-4 h-4 ml-1" />إصدار أمر
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Purchase Orders */}
+        {/* Purchase Orders with Filter */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><Truck className="w-6 h-6 text-green-600" />أوامر الشراء المصدرة</h2>
-            <Button variant="outline" onClick={() => exportPurchaseOrdersTableToPDF(orders)} className="border-slate-300" disabled={orders.length === 0}><Download className="w-4 h-4 ml-2" />تصدير الأوامر</Button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Truck className="w-5 h-5 text-green-600" />أوامر الشراء
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setReportDialogOpen(true)} className="h-8 text-xs">
+                <FileText className="w-3 h-3 ml-1" />تقرير بتاريخ
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => exportPurchaseOrdersTableToPDF(filteredOrders)} disabled={!filteredOrders.length} className="h-8 text-xs">
+                <Download className="w-3 h-3 ml-1" />تصدير
+              </Button>
+            </div>
           </div>
+
+          {/* Date Filter */}
+          <Card className="mb-3 bg-slate-50">
+            <CardContent className="p-3">
+              <div className="flex flex-col sm:flex-row gap-2 items-end">
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">من تاريخ</Label>
+                    <Input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">إلى تاريخ</Label>
+                    <Input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-9 text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button size="sm" onClick={applyFilter} className="flex-1 sm:flex-none h-9 bg-orange-600 hover:bg-orange-700">
+                    <Filter className="w-3 h-3 ml-1" />فلترة
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={clearFilter} className="h-9">مسح</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="shadow-sm">
             <CardContent className="p-0">
-              {orders.length === 0 ? (
-                <div className="text-center py-12"><FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" /><p className="text-slate-500">لا توجد أوامر شراء</p></div>
+              {!filteredOrders.length ? (
+                <div className="text-center py-8"><FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" /><p className="text-slate-500 text-sm">لا توجد أوامر شراء</p></div>
               ) : (
-                <Table>
-                  <TableHeader><TableRow className="bg-slate-50"><TableHead className="text-right font-bold">الأصناف</TableHead><TableHead className="text-right font-bold">المشروع</TableHead><TableHead className="text-right font-bold">المورد</TableHead><TableHead className="text-right font-bold">ملاحظات</TableHead><TableHead className="text-right font-bold">تاريخ الإصدار</TableHead><TableHead className="text-right font-bold">الإجراءات</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {orders.map((order) => (
-                      <TableRow key={order.id} className="table-row-hover">
-                        <TableCell className="font-medium">{getItemsSummary(order.items)}</TableCell>
-                        <TableCell>{order.project_name}</TableCell>
-                        <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
-                        <TableCell className="max-w-[200px] truncate text-slate-500">{order.notes || "-"}</TableCell>
-                        <TableCell className="text-slate-500 text-sm">{formatDate(order.created_at)}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4 text-slate-600" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                <>
+                  {/* Mobile */}
+                  <div className="sm:hidden divide-y">
+                    {filteredOrders.map((order) => (
+                      <div key={order.id} className="p-3 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-sm">{getItemsSummary(order.items)}</p>
+                            <p className="text-xs text-slate-500">{order.project_name}</p>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                          <Badge className="bg-green-100 text-green-800 border-green-300 border text-xs">{order.supplier_name}</Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-7 w-7 p-0"><Download className="w-3 h-3 text-green-600" /></Button>
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                  {/* Desktop */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <Table>
+                      <TableHeader><TableRow className="bg-slate-50">
+                        <TableHead className="text-right">الأصناف</TableHead>
+                        <TableHead className="text-right">المشروع</TableHead>
+                        <TableHead className="text-right">المورد</TableHead>
+                        <TableHead className="text-right">التاريخ</TableHead>
+                        <TableHead className="text-right">الإجراءات</TableHead>
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {filteredOrders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">{getItemsSummary(order.items)}</TableCell>
+                            <TableCell>{order.project_name}</TableCell>
+                            <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
+                            <TableCell className="text-sm text-slate-500">{formatDate(order.created_at)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
+                                <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -201,29 +367,26 @@ const ProcurementDashboard = () => {
 
       {/* View Request Dialog */}
       <Dialog open={viewRequestDialogOpen} onOpenChange={setViewRequestDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]" dir="rtl">
-          <DialogHeader><DialogTitle className="text-xl font-bold text-center">تفاصيل الطلب</DialogTitle></DialogHeader>
+        <DialogContent className="w-[95vw] max-w-md max-h-[85vh] overflow-y-auto p-4" dir="rtl">
+          <DialogHeader><DialogTitle className="text-center">تفاصيل الطلب</DialogTitle></DialogHeader>
           {selectedRequest && (
-            <div className="space-y-4 mt-4">
-              <div className="bg-slate-50 p-4 rounded-lg space-y-3">
-                <div className="border-b pb-3">
-                  <span className="text-slate-500 block mb-2 font-medium">الأصناف المطلوبة:</span>
-                  <div className="space-y-2">
-                    {selectedRequest.items?.map((item, idx) => (
-                      <div key={idx} className="flex justify-between bg-white p-2 rounded">
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-slate-600">{item.quantity} {item.unit || "قطعة"}</span>
-                      </div>
-                    ))}
+            <div className="space-y-3 mt-2">
+              <div className="bg-slate-50 p-3 rounded-lg space-y-2">
+                <p className="text-sm font-medium border-b pb-2">الأصناف:</p>
+                {selectedRequest.items?.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-sm bg-white p-2 rounded">
+                    <span>{item.name}</span>
+                    <span className="text-slate-600">{item.quantity} {item.unit}</span>
                   </div>
-                </div>
-                <div className="flex justify-between"><span className="text-slate-500">المشروع:</span><span className="font-semibold">{selectedRequest.project_name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">المشرف:</span><span className="font-semibold">{selectedRequest.supervisor_name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">المهندس:</span><span className="font-semibold">{selectedRequest.engineer_name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">الحالة:</span>{getStatusBadge(selectedRequest.status)}</div>
-                <div className="pt-2 border-t"><span className="text-slate-500 block mb-1">سبب الطلب:</span><p className="font-medium">{selectedRequest.reason}</p></div>
+                ))}
               </div>
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => exportRequestToPDF(selectedRequest)}><Download className="w-4 h-4 ml-2" />تصدير PDF</Button>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-slate-500">المشروع:</span><p className="font-medium">{selectedRequest.project_name}</p></div>
+                <div><span className="text-slate-500">المشرف:</span><p className="font-medium">{selectedRequest.supervisor_name}</p></div>
+              </div>
+              <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => exportRequestToPDF(selectedRequest)}>
+                <Download className="w-4 h-4 ml-2" />تصدير PDF
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -231,29 +394,31 @@ const ProcurementDashboard = () => {
 
       {/* View Order Dialog */}
       <Dialog open={viewOrderDialogOpen} onOpenChange={setViewOrderDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]" dir="rtl">
-          <DialogHeader><DialogTitle className="text-xl font-bold text-center">تفاصيل أمر الشراء</DialogTitle></DialogHeader>
+        <DialogContent className="w-[95vw] max-w-md max-h-[85vh] overflow-y-auto p-4" dir="rtl">
+          <DialogHeader><DialogTitle className="text-center">تفاصيل أمر الشراء</DialogTitle></DialogHeader>
           {selectedOrder && (
-            <div className="space-y-4 mt-4">
-              <div className="bg-slate-50 p-4 rounded-lg space-y-3">
-                <div className="text-center pb-3 border-b"><span className="text-sm text-slate-500">رقم الأمر</span><p className="text-lg font-bold text-orange-600">{selectedOrder.id.slice(0, 8).toUpperCase()}</p></div>
-                <div className="border-b pb-3">
-                  <span className="text-slate-500 block mb-2 font-medium">الأصناف:</span>
-                  <div className="space-y-2">
-                    {selectedOrder.items?.map((item, idx) => (
-                      <div key={idx} className="flex justify-between bg-white p-2 rounded">
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-slate-600">{item.quantity} {item.unit || "قطعة"}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex justify-between"><span className="text-slate-500">المشروع:</span><span className="font-semibold">{selectedOrder.project_name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">المورد:</span><Badge className="bg-green-50 text-green-800 border-green-200 border">{selectedOrder.supplier_name}</Badge></div>
-                <div className="flex justify-between"><span className="text-slate-500">تاريخ الإصدار:</span><span className="font-semibold">{formatDate(selectedOrder.created_at)}</span></div>
-                {selectedOrder.notes && (<div className="pt-2 border-t"><span className="text-slate-500 block mb-1">ملاحظات:</span><p className="font-medium">{selectedOrder.notes}</p></div>)}
+            <div className="space-y-3 mt-2">
+              <div className="text-center pb-2 border-b">
+                <p className="text-xs text-slate-500">رقم الأمر</p>
+                <p className="text-lg font-bold text-orange-600">{selectedOrder.id.slice(0, 8).toUpperCase()}</p>
               </div>
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => exportPurchaseOrderToPDF(selectedOrder)}><Download className="w-4 h-4 ml-2" />تصدير أمر الشراء PDF</Button>
+              <div className="bg-slate-50 p-3 rounded-lg space-y-2">
+                <p className="text-sm font-medium border-b pb-2">الأصناف:</p>
+                {selectedOrder.items?.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-sm bg-white p-2 rounded">
+                    <span>{item.name}</span>
+                    <span className="text-slate-600">{item.quantity} {item.unit}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-slate-500">المشروع:</span><p className="font-medium">{selectedOrder.project_name}</p></div>
+                <div><span className="text-slate-500">المورد:</span><Badge className="bg-green-50 text-green-800 border">{selectedOrder.supplier_name}</Badge></div>
+              </div>
+              {selectedOrder.notes && <div><span className="text-slate-500 text-sm">ملاحظات:</span><p className="text-sm">{selectedOrder.notes}</p></div>}
+              <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => exportPurchaseOrderToPDF(selectedOrder)}>
+                <Download className="w-4 h-4 ml-2" />تصدير PDF
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -261,32 +426,53 @@ const ProcurementDashboard = () => {
 
       {/* Create Order Dialog */}
       <Dialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]" dir="rtl">
-          <DialogHeader><DialogTitle className="text-xl font-bold text-center">إصدار أمر شراء</DialogTitle></DialogHeader>
+        <DialogContent className="w-[95vw] max-w-md p-4" dir="rtl">
+          <DialogHeader><DialogTitle className="text-center">إصدار أمر شراء</DialogTitle></DialogHeader>
           {selectedRequest && (
-            <div className="py-4 space-y-4">
-              <div className="bg-slate-50 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between"><span className="text-slate-500">المشروع:</span><span className="font-semibold">{selectedRequest.project_name}</span></div>
-                <div className="border-t pt-2 mt-2">
-                  <span className="text-slate-500 block mb-2">الأصناف:</span>
+            <div className="space-y-4 mt-2">
+              <div className="bg-slate-50 p-3 rounded-lg space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-slate-500">المشروع:</span><span className="font-medium">{selectedRequest.project_name}</span></div>
+                <div className="border-t pt-2">
+                  <p className="text-slate-500 mb-1">الأصناف:</p>
                   {selectedRequest.items?.map((item, idx) => (
-                    <div key={idx} className="text-sm">{item.name} - {item.quantity} {item.unit || "قطعة"}</div>
+                    <p key={idx}>{item.name} - {item.quantity} {item.unit}</p>
                   ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>اسم المورد</Label>
-                <Input placeholder="مثال: شركة الحديد الوطنية" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="h-11" />
+              <div>
+                <Label className="text-sm">اسم المورد</Label>
+                <Input placeholder="مثال: شركة الحديد" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="h-10 mt-1" />
               </div>
-              <div className="space-y-2">
-                <Label>ملاحظات (اختياري)</Label>
-                <Textarea placeholder="أي ملاحظات إضافية..." value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={3} />
+              <div>
+                <Label className="text-sm">ملاحظات (اختياري)</Label>
+                <Textarea placeholder="أي ملاحظات..." value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={2} className="mt-1" />
               </div>
-              <Button className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-bold" onClick={handleCreateOrder} disabled={submitting}>
-                {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-5 h-5 ml-2" />تأكيد أمر الشراء</>}
+              <Button className="w-full h-11 bg-orange-600 hover:bg-orange-700" onClick={handleCreateOrder} disabled={submitting}>
+                {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />تأكيد أمر الشراء</>}
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-sm p-4" dir="rtl">
+          <DialogHeader><DialogTitle className="text-center">تقرير أوامر الشراء</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-slate-600 text-center">اختر الفترة الزمنية للتقرير</p>
+            <div>
+              <Label className="text-sm">من تاريخ</Label>
+              <Input type="date" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} className="h-10 mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm">إلى تاريخ</Label>
+              <Input type="date" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} className="h-10 mt-1" />
+            </div>
+            <Button className="w-full h-11 bg-orange-600 hover:bg-orange-700" onClick={generateReport}>
+              <Download className="w-4 h-4 ml-2" />تصدير التقرير PDF
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
