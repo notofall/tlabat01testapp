@@ -1549,6 +1549,173 @@ const ProcurementDashboard = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Purchase Order Dialog */}
+      <Dialog open={editOrderDialogOpen} onOpenChange={setEditOrderDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Edit className="w-5 h-5 text-blue-600" />
+              تعديل أمر الشراء
+              <span className="text-orange-600 font-mono">{editingOrder?.id?.slice(0, 8).toUpperCase()}</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingOrder && (
+            <div className="space-y-4 mt-3">
+              {/* Order Items with Prices */}
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="font-medium text-sm mb-3 text-slate-700 border-b pb-2">أسعار الأصناف (اختياري - يمكن إضافتها لاحقاً)</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {editingOrder.items?.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded border">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{item.name}</p>
+                        <p className="text-xs text-slate-500">{item.quantity} {item.unit}</p>
+                      </div>
+                      <div className="w-28">
+                        <Input
+                          type="number"
+                          placeholder="السعر"
+                          value={editOrderData.item_prices[idx] || ""}
+                          onChange={(e) => setEditOrderData(prev => ({
+                            ...prev,
+                            item_prices: { ...prev.item_prices, [idx]: e.target.value }
+                          }))}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <span className="text-xs text-slate-400 w-8">ر.س</span>
+                    </div>
+                  ))}
+                </div>
+                {Object.values(editOrderData.item_prices).some(p => p > 0) && (
+                  <div className="mt-3 pt-2 border-t flex justify-between items-center">
+                    <span className="text-sm text-slate-600">المجموع:</span>
+                    <span className="font-bold text-emerald-600">
+                      {editingOrder.items?.reduce((sum, item, idx) => {
+                        const price = parseFloat(editOrderData.item_prices[idx]) || 0;
+                        return sum + (price * item.quantity);
+                      }, 0).toLocaleString('ar-SA')} ر.س
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Supplier Invoice Number */}
+              <div className="space-y-2">
+                <Label className="text-sm text-slate-700">رقم فاتورة المورد</Label>
+                <Input
+                  placeholder="أدخل رقم الفاتورة عند استلامها"
+                  value={editOrderData.supplier_invoice_number}
+                  onChange={(e) => setEditOrderData(prev => ({ ...prev, supplier_invoice_number: e.target.value }))}
+                  className="h-10"
+                />
+              </div>
+
+              {/* Supplier */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-700">المورد</Label>
+                  <select
+                    value={editOrderData.supplier_id}
+                    onChange={(e) => {
+                      const selectedSupplier = suppliers.find(s => s.id === e.target.value);
+                      setEditOrderData(prev => ({
+                        ...prev,
+                        supplier_id: e.target.value,
+                        supplier_name: selectedSupplier?.name || prev.supplier_name
+                      }));
+                    }}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">-- اختر من القائمة --</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-700">اسم المورد</Label>
+                  <Input
+                    value={editOrderData.supplier_name}
+                    onChange={(e) => setEditOrderData(prev => ({ ...prev, supplier_name: e.target.value }))}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+
+              {/* Category and Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-700">تصنيف الميزانية</Label>
+                  <select
+                    value={editOrderData.category_id}
+                    onChange={(e) => setEditOrderData(prev => ({ ...prev, category_id: e.target.value }))}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">-- بدون تصنيف --</option>
+                    {budgetCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name} - {projects.find(p => p.id === cat.project_id)?.name || ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-700">تاريخ التسليم المتوقع</Label>
+                  <Input
+                    type="date"
+                    value={editOrderData.expected_delivery_date}
+                    onChange={(e) => setEditOrderData(prev => ({ ...prev, expected_delivery_date: e.target.value }))}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label className="text-sm text-slate-700">ملاحظات</Label>
+                <Textarea
+                  value={editOrderData.notes}
+                  onChange={(e) => setEditOrderData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="ملاحظات إضافية..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Terms */}
+              <div className="space-y-2">
+                <Label className="text-sm text-slate-700">الشروط والأحكام</Label>
+                <Textarea
+                  value={editOrderData.terms_conditions}
+                  onChange={(e) => setEditOrderData(prev => ({ ...prev, terms_conditions: e.target.value }))}
+                  placeholder="شروط وأحكام إضافية..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <Button 
+                  className="flex-1 h-11 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleSaveOrderEdit}
+                  disabled={submitting}
+                >
+                  {submitting ? "جاري الحفظ..." : "حفظ التعديلات"}
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => setEditOrderDialogOpen(false)}
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Change Password Dialog */}
       <ChangePasswordDialog 
         open={passwordDialogOpen} 
