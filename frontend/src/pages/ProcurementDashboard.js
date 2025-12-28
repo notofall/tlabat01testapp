@@ -353,6 +353,7 @@ const ProcurementDashboard = () => {
         supplier_name: supplierName, 
         selected_items: selectedItemIndices,
         item_prices: pricesArray,
+        category_id: selectedCategoryId || null,  // Budget category
         notes: orderNotes,
         terms_conditions: termsConditions,
         expected_delivery_date: expectedDeliveryDate || null
@@ -366,6 +367,7 @@ const ProcurementDashboard = () => {
       setExpectedDeliveryDate("");
       setSelectedItemIndices([]);
       setItemPrices({});
+      setSelectedCategoryId("");
       setSelectedRequest(null);
       fetchData();
     } catch (error) {
