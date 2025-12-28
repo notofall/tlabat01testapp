@@ -201,16 +201,16 @@ async def get_supervisor_prefix(supervisor_id: str) -> str:
     
     return new_prefix
 
-async def get_next_request_number(supervisor_id: str) -> str:
+async def get_next_request_number(supervisor_id: str) -> tuple:
     """Get the next sequential request number for a supervisor (e.g., A1, A2, B1...)"""
     # Get supervisor prefix
     prefix = await get_supervisor_prefix(supervisor_id)
     
-    # Find the highest request number for this supervisor
+    # Find the highest request sequence for this supervisor
     last_request = await db.material_requests.find_one(
         {"supervisor_id": supervisor_id},
-        {"request_number": 1},
-        sort=[("request_seq": -1)]
+        {"request_seq": 1},
+        sort=[("request_seq", -1)]
     )
     
     # Get next sequence number
