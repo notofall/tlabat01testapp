@@ -714,8 +714,13 @@ const SupervisorDashboard = () => {
             <hr className="border-slate-200" />
 
             <div>
-              <Label className="text-sm font-medium">اسم المشروع</Label>
-              <Input value={editProjectName} onChange={(e) => setEditProjectName(e.target.value)} className="h-11 mt-1" />
+              <Label className="text-sm font-medium">المشروع</Label>
+              <select value={editProjectId} onChange={(e) => setEditProjectId(e.target.value)} className="w-full h-11 mt-1 border rounded-lg bg-white px-3">
+                <option value="">اختر المشروع</option>
+                {projects.filter(p => p.status === 'active').map((proj) => (
+                  <option key={proj.id} value={proj.id}>{proj.name} - {proj.owner_name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label className="text-sm font-medium">سبب الطلب</Label>
