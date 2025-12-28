@@ -970,6 +970,110 @@ async def mark_purchase_order_printed(order_id: str, current_user: dict = Depend
     
     return {"message": "تم تسجيل طباعة أمر الشراء بنجاح"}
 
+# ==================== DELIVERY TRACKING ROUTES ====================
+
+@api_router.put("/purchase-orders/{order_id}/ship")
+async def mark_order_shipped(order_id: str, current_user: dict = Depends(get_current_user)):
+    """تسجيل شحن أمر الشراء"""
+    if current_user["role"] not in [UserRole.PROCUREMENT_MANAGER, UserRole.PRINTER]:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بهذا الإجراء")
+    
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    if order["status"] not in [PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.APPROVED]:
+        raise HTTPException(status_code=400, detail="أمر الشراء يجب أن يكون مطبوعاً أو معتمداً")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db.purchase_orders.update_one(
+        {"id": order_id},
+        {"$set": {
+            "status": PurchaseOrderStatus.SHIPPED,
+            "shipped_at": now
+        }}
+    )
+    
+    return {"message": "تم تسجيل شحن أمر الشراء بنجاح"}
+
+@api_router.put("/purchase-orders/{order_id}/deliver")
+async def record_delivery(
+    order_id: str,
+    delivery_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """تسجيل استلام المواد - المشرف أو المهندس"""
+    if current_user["role"] not in [UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.PROCUREMENT_MANAGER]:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بتسجيل الاستلام")
+    
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Update delivered quantities for items
+    items = order.get("items", [])
+    items_delivered = delivery_data.get("items_delivered", [])
+    all_delivered = True
+    
+    for delivered_item in items_delivered:
+        for item in items:
+            if item["name"] == delivered_item.get("name"):
+                item["delivered_quantity"] = item.get("delivered_quantity", 0) + delivered_item.get("quantity_delivered", 0)
+                if item["delivered_quantity"] < item["quantity"]:
+                    all_delivered = False
+                break
+    
+    # Check if all items are fully delivered
+    for item in items:
+        if item.get("delivered_quantity", 0) < item.get("quantity", 0):
+            all_delivered = False
+            break
+    
+    new_status = PurchaseOrderStatus.DELIVERED if all_delivered else PurchaseOrderStatus.PARTIALLY_DELIVERED
+    
+    # Create delivery record
+    delivery_record = {
+        "id": str(uuid.uuid4()),
+        "order_id": order_id,
+        "items_delivered": items_delivered,
+        "delivery_date": delivery_data.get("delivery_date", now),
+        "received_by": delivery_data.get("received_by", current_user["name"]),
+        "notes": delivery_data.get("notes", ""),
+        "recorded_by": current_user["id"],
+        "recorded_at": now
+    }
+    
+    await db.delivery_records.insert_one(delivery_record)
+    
+    await db.purchase_orders.update_one(
+        {"id": order_id},
+        {"$set": {
+            "items": items,
+            "status": new_status,
+            "delivered_at": now if all_delivered else order.get("delivered_at"),
+            "delivery_notes": delivery_data.get("notes", "")
+        }}
+    )
+    
+    return {
+        "message": "تم تسجيل الاستلام بنجاح",
+        "status": new_status,
+        "all_delivered": all_delivered
+    }
+
+@api_router.get("/purchase-orders/{order_id}/deliveries")
+async def get_order_deliveries(order_id: str, current_user: dict = Depends(get_current_user)):
+    """الحصول على سجلات التسليم لأمر شراء"""
+    deliveries = await db.delivery_records.find(
+        {"order_id": order_id}, 
+        {"_id": 0}
+    ).sort("recorded_at", -1).to_list(50)
+    
+    return deliveries
+
 @api_router.get("/purchase-orders", response_model=List[PurchaseOrderResponse])
 async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
     query = {}
