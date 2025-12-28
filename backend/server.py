@@ -705,7 +705,7 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
     
     orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
-    # Handle legacy orders without status field
+    # Handle legacy orders without status field and fetch supervisor/engineer names
     result = []
     for o in orders:
         if "status" not in o:
@@ -714,6 +714,17 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
             o["approved_at"] = None
         if "printed_at" not in o:
             o["printed_at"] = None
+        
+        # Fetch supervisor and engineer names from original request if not present
+        if "supervisor_name" not in o or "engineer_name" not in o:
+            request = await db.material_requests.find_one({"id": o.get("request_id")}, {"_id": 0})
+            if request:
+                o["supervisor_name"] = request.get("supervisor_name", "")
+                o["engineer_name"] = request.get("engineer_name", "")
+            else:
+                o["supervisor_name"] = o.get("supervisor_name", "")
+                o["engineer_name"] = o.get("engineer_name", "")
+        
         result.append(PurchaseOrderResponse(**o))
     
     return result
