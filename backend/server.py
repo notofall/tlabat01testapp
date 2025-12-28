@@ -168,18 +168,58 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 # ==================== EMAIL SERVICE ====================
 
-async def get_next_request_number(supervisor_id: str) -> int:
-    """Get the next sequential request number for a supervisor"""
+async def get_supervisor_prefix(supervisor_id: str) -> str:
+    """Get or assign the supervisor's prefix letter (A, B, C...)"""
+    supervisor = await db.users.find_one({"id": supervisor_id}, {"_id": 0})
+    if not supervisor:
+        return "X"
+    
+    # If supervisor already has a prefix, return it
+    if supervisor.get("supervisor_prefix"):
+        return supervisor["supervisor_prefix"]
+    
+    # Assign a new prefix based on the number of supervisors with prefixes
+    existing_prefixes = await db.users.distinct("supervisor_prefix", {"role": UserRole.SUPERVISOR, "supervisor_prefix": {"$exists": True, "$ne": None}})
+    
+    # Generate next letter (A, B, C, ..., Z, AA, AB, ...)
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    used_count = len(existing_prefixes)
+    
+    if used_count < 26:
+        new_prefix = alphabet[used_count]
+    else:
+        # For more than 26 supervisors: AA, AB, AC...
+        first_letter = alphabet[(used_count - 26) // 26]
+        second_letter = alphabet[(used_count - 26) % 26]
+        new_prefix = first_letter + second_letter
+    
+    # Save the prefix to the supervisor
+    await db.users.update_one(
+        {"id": supervisor_id},
+        {"$set": {"supervisor_prefix": new_prefix}}
+    )
+    
+    return new_prefix
+
+async def get_next_request_number(supervisor_id: str) -> str:
+    """Get the next sequential request number for a supervisor (e.g., A1, A2, B1...)"""
+    # Get supervisor prefix
+    prefix = await get_supervisor_prefix(supervisor_id)
+    
     # Find the highest request number for this supervisor
     last_request = await db.material_requests.find_one(
         {"supervisor_id": supervisor_id},
         {"request_number": 1},
-        sort=[("request_number", -1)]
+        sort=[("request_seq": -1)]
     )
     
-    if last_request and last_request.get("request_number"):
-        return last_request["request_number"] + 1
-    return 1
+    # Get next sequence number
+    if last_request and last_request.get("request_seq"):
+        next_seq = last_request["request_seq"] + 1
+    else:
+        next_seq = 1
+    
+    return prefix + str(next_seq), next_seq
 
 async def send_email_notification(to_email: str, subject: str, content: str):
     """Send email notification using SendGrid"""
