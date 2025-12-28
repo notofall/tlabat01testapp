@@ -172,7 +172,7 @@ class PurchaseOrderItem(BaseModel):
 # Material Request Models
 class MaterialRequestCreate(BaseModel):
     items: List[MaterialItem]
-    project_name: str
+    project_id: str  # معرف المشروع
     reason: str
     engineer_id: str
     expected_delivery_date: Optional[str] = None  # تاريخ الحاجة المتوقع
@@ -186,6 +186,7 @@ class MaterialRequestResponse(BaseModel):
     request_number: Optional[str] = None  # رقم الطلب المتسلسل للمشرف (A1, A2, B1...)
     request_seq: Optional[int] = None  # الرقم التسلسلي فقط
     items: List[MaterialItem]
+    project_id: Optional[str] = None
     project_name: str
     reason: str
     supervisor_id: str
