@@ -60,7 +60,7 @@ const ProcurementDashboard = () => {
   const [budgetReport, setBudgetReport] = useState(null);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [budgetReportDialogOpen, setBudgetReportDialogOpen] = useState(false);
-  const [newCategory, setNewCategory] = useState({ name: "", project_name: "", estimated_budget: "" });
+  const [newCategory, setNewCategory] = useState({ name: "", project_id: "", estimated_budget: "" });
   const [editingCategory, setEditingCategory] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");  // For PO creation
   const [projects, setProjects] = useState([]);
