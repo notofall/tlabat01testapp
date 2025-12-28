@@ -53,15 +53,15 @@ export const exportRequestToPDF = (request) => {
   doc.text('الأصناف المطلوبة:', 190, yPos, { align: 'right' });
   yPos += 5;
 
-  const items = request.items || [];
+  const items = Array.isArray(request.items) ? request.items : [];
   const tableData = items.map((item, idx) => [
     item.unit || 'قطعة',
-    String(item.quantity),
-    item.name,
+    String(item.quantity || 0),
+    item.name || '-',
     idx + 1
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     head: [['الوحدة', 'الكمية', 'اسم المادة', '#']],
     body: tableData,
     startY: yPos,
@@ -76,7 +76,7 @@ export const exportRequestToPDF = (request) => {
   });
 
   yPos = doc.lastAutoTable.finalY + 15;
-  doc.text(`سبب الطلب: ${request.reason}`, 190, yPos, { align: 'right' });
+  doc.text(`سبب الطلب: ${request.reason || '-'}`, 190, yPos, { align: 'right' });
 
   if (request.rejection_reason) {
     yPos += 10;
@@ -89,7 +89,7 @@ export const exportRequestToPDF = (request) => {
   doc.setFontSize(10);
   doc.text('نظام إدارة طلبات المواد', 105, 280, { align: 'center' });
 
-  doc.save(`طلب_مواد_${request.id.slice(0, 8)}.pdf`);
+  doc.save(`طلب_مواد_${request.id?.slice(0, 8) || 'request'}.pdf`);
 };
 
 export const exportPurchaseOrderToPDF = (order) => {
@@ -136,7 +136,7 @@ export const exportPurchaseOrderToPDF = (order) => {
     idx + 1
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     head: [['الوحدة', 'الكمية', 'اسم المادة', '#']],
     body: tableData,
     startY: yPos,
@@ -181,22 +181,23 @@ export const exportRequestsTableToPDF = (requests, title = 'قائمة الطل�
   doc.text(title, 148, 15, { align: 'center' });
 
   const tableData = requests.map(r => {
-    const itemsCount = r.items?.length || 0;
+    const items = Array.isArray(r.items) ? r.items : [];
+    const itemsCount = items.length;
     const itemsSummary = itemsCount > 0 
-      ? (itemsCount === 1 ? r.items[0].name : `${r.items[0].name} + ${itemsCount - 1}`)
+      ? (itemsCount === 1 ? items[0].name : `${items[0].name} + ${itemsCount - 1}`)
       : '-';
     return [
       formatDate(r.created_at),
       getStatusText(r.status),
-      r.engineer_name,
-      r.project_name,
+      r.engineer_name || '-',
+      r.project_name || '-',
       itemsSummary
     ];
   });
 
   const headers = [['التاريخ', 'الحالة', 'المهندس', 'المشروع', 'الأصناف']];
 
-  doc.autoTable({
+  autoTable(doc, {
     head: headers,
     body: tableData,
     startY: 25,
@@ -224,21 +225,22 @@ export const exportPurchaseOrdersTableToPDF = (orders) => {
   doc.text('قائمة أوامر الشراء', 148, 15, { align: 'center' });
 
   const tableData = orders.map(o => {
-    const itemsCount = o.items?.length || 0;
+    const items = Array.isArray(o.items) ? o.items : [];
+    const itemsCount = items.length;
     const itemsSummary = itemsCount > 0 
-      ? (itemsCount === 1 ? o.items[0].name : `${o.items[0].name} + ${itemsCount - 1}`)
+      ? (itemsCount === 1 ? items[0].name : `${items[0].name} + ${itemsCount - 1}`)
       : '-';
     return [
       formatDate(o.created_at),
-      o.supplier_name,
-      o.project_name,
+      o.supplier_name || '-',
+      o.project_name || '-',
       itemsSummary
     ];
   });
 
   const headers = [['تاريخ الإصدار', 'المورد', 'المشروع', 'الأصناف']];
 
-  doc.autoTable({
+  autoTable(doc, {
     head: headers,
     body: tableData,
     startY: 25,
