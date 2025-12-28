@@ -117,6 +117,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/printer"
+              element={
+                <ProtectedRoute allowedRoles={["printer"]}>
+                  <PrinterDashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
