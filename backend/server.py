@@ -561,7 +561,7 @@ async def create_project(
     current_user: dict = Depends(get_current_user)
 ):
     """إنشاء مشروع جديد - المشرف فقط"""
-    if current_user["role"] != UserRole.SITE_SUPERVISOR:
+    if current_user["role"] != UserRole.SUPERVISOR:
         raise HTTPException(status_code=403, detail="فقط المشرف يمكنه إنشاء المشاريع")
     
     project_id = str(uuid.uuid4())
@@ -683,7 +683,7 @@ async def update_project(
     current_user: dict = Depends(get_current_user)
 ):
     """تحديث مشروع - المشرف فقط"""
-    if current_user["role"] != UserRole.SITE_SUPERVISOR:
+    if current_user["role"] != UserRole.SUPERVISOR:
         raise HTTPException(status_code=403, detail="فقط المشرف يمكنه تعديل المشاريع")
     
     project = await db.projects.find_one({"id": project_id}, {"_id": 0})
@@ -719,7 +719,7 @@ async def delete_project(
     current_user: dict = Depends(get_current_user)
 ):
     """حذف مشروع - المشرف فقط"""
-    if current_user["role"] != UserRole.SITE_SUPERVISOR:
+    if current_user["role"] != UserRole.SUPERVISOR:
         raise HTTPException(status_code=403, detail="فقط المشرف يمكنه حذف المشاريع")
     
     # Check if project has requests
