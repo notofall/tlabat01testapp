@@ -444,13 +444,14 @@ async def get_requests(current_user: dict = Depends(get_current_user)):
         # مدير المشتريات يرى الطلبات المعتمدة والتي بها أوامر شراء جزئية
         query["status"] = {"$in": [RequestStatus.APPROVED_BY_ENGINEER, RequestStatus.PARTIALLY_ORDERED]}
     
-    requests = await db.material_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # Limit to 500 results for performance (with indexes, this is fast)
+    requests = await db.material_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     return [MaterialRequestResponse(**r) for r in requests]
 
 @api_router.get("/requests/all", response_model=List[MaterialRequestResponse])
 async def get_all_requests(current_user: dict = Depends(get_current_user)):
-    """Get all requests for viewing (all users can see all requests)"""
-    requests = await db.material_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    """Get all requests for viewing (all users can see all requests) - limited to 500"""
+    requests = await db.material_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return [MaterialRequestResponse(**r) for r in requests]
 
 # Model for updating request
