@@ -480,15 +480,16 @@ async def reject_request(
     # Notify supervisor
     supervisor = await db.users.find_one({"id": request["supervisor_id"]}, {"_id": 0})
     if supervisor:
+        # Build items list for email
+        items_html = "".join([f"<li>{item['name']} - {item['quantity']} {item.get('unit', 'قطعة')}</li>" for item in request.get('items', [])])
         email_content = f"""
         <div dir="rtl" style="font-family: Arial, sans-serif;">
             <h2>تم رفض طلب المواد</h2>
             <p>مرحباً {supervisor['name']},</p>
             <p>تم رفض طلب المواد الخاص بك:</p>
-            <ul>
-                <li><strong>اسم المادة:</strong> {request['material_name']}</li>
-                <li><strong>سبب الرفض:</strong> {rejection_data.get('reason', 'لم يتم تحديد السبب')}</li>
-            </ul>
+            <p><strong>المواد:</strong></p>
+            <ul>{items_html}</ul>
+            <p><strong>سبب الرفض:</strong> {rejection_data.get('reason', 'لم يتم تحديد السبب')}</p>
         </div>
         """
         await send_email_notification(
@@ -523,8 +524,7 @@ async def create_purchase_order(
     order_doc = {
         "id": order_id,
         "request_id": order_data.request_id,
-        "material_name": request["material_name"],
-        "quantity": request["quantity"],
+        "items": request.get("items", []),
         "project_name": request["project_name"],
         "supplier_name": order_data.supplier_name,
         "notes": order_data.notes,
