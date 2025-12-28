@@ -10,7 +10,7 @@ import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { toast } from "sonner";
-import { Package, LogOut, Truck, PackageCheck, Clock, CheckCircle, Eye, FileText, ClipboardCheck, KeyRound } from "lucide-react";
+import { Package, LogOut, Truck, PackageCheck, Clock, CheckCircle, Eye, FileText, ClipboardCheck, KeyRound, Download, Printer } from "lucide-react";
 import ChangePasswordDialog from "../components/ChangePasswordDialog";
 
 const DeliveryTrackerDashboard = () => {
