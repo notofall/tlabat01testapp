@@ -35,6 +35,10 @@ const ProcurementDashboard = () => {
   // Filter states
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterOrderId, setFilterOrderId] = useState("");
+  const [filterRequestId, setFilterRequestId] = useState("");
+  const [filterProject, setFilterProject] = useState("");
+  const [filterSupplier, setFilterSupplier] = useState("");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
 
