@@ -343,8 +343,7 @@ metadata:
 test_plan:
   current_focus:
     - "Purchase Order PDF Export"
-  stuck_tasks:
-    - "Purchase Order PDF Export"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
