@@ -1787,7 +1787,147 @@ async def get_remaining_items(request_id: str, current_user: dict = Depends(get_
             remaining_items.append({"index": idx, **item})
     
     return {"remaining_items": remaining_items, "all_items": [{"index": i, **item} for i, item in enumerate(all_items)]}
-    return [PurchaseOrderResponse(**o) for o in orders]
+
+# ==================== DELIVERY TRACKER ROUTES ====================
+
+@api_router.get("/delivery-tracker/orders")
+async def get_orders_for_tracking(current_user: dict = Depends(get_current_user)):
+    """الحصول على أوامر الشراء التي تحتاج متابعة - لمتابع التوريد"""
+    if current_user["role"] not in [UserRole.DELIVERY_TRACKER, UserRole.PROCUREMENT_MANAGER]:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بهذا الإجراء")
+    
+    # Get orders that are shipped but not fully delivered
+    query = {"status": {"$in": [PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.PARTIALLY_DELIVERED, PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED]}}
+    orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    # Batch fetch category names
+    category_ids = list(set([o.get("category_id") for o in orders if o.get("category_id")]))
+    categories_map = {}
+    if category_ids:
+        categories_list = await db.budget_categories.find({"id": {"$in": category_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(None)
+        categories_map = {c["id"]: c["name"] for c in categories_list}
+    
+    result = []
+    for o in orders:
+        o.setdefault("status", PurchaseOrderStatus.APPROVED)
+        o.setdefault("total_amount", 0)
+        o.setdefault("supplier_receipt_number", None)
+        o.setdefault("received_by_id", None)
+        o.setdefault("received_by_name", None)
+        o["category_name"] = categories_map.get(o.get("category_id"))
+        result.append(o)
+    
+    return result
+
+@api_router.put("/delivery-tracker/orders/{order_id}/confirm-receipt")
+async def confirm_receipt(
+    order_id: str,
+    receipt_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """تأكيد استلام أمر الشراء مع رقم استلام المورد"""
+    if current_user["role"] not in [UserRole.DELIVERY_TRACKER, UserRole.PROCUREMENT_MANAGER, UserRole.SUPERVISOR]:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بهذا الإجراء")
+    
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    supplier_receipt_number = receipt_data.get("supplier_receipt_number")
+    delivery_notes = receipt_data.get("delivery_notes", "")
+    items_delivered = receipt_data.get("items_delivered", [])
+    
+    if not supplier_receipt_number:
+        raise HTTPException(status_code=400, detail="الرجاء إدخال رقم استلام المورد")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Update delivered quantities in items
+    updated_items = order.get("items", [])
+    all_delivered = True
+    
+    for delivered_item in items_delivered:
+        item_name = delivered_item.get("name")
+        qty_delivered = delivered_item.get("quantity_delivered", 0)
+        
+        for item in updated_items:
+            if item.get("name") == item_name:
+                current_delivered = item.get("delivered_quantity", 0)
+                item["delivered_quantity"] = current_delivered + qty_delivered
+                if item["delivered_quantity"] < item.get("quantity", 0):
+                    all_delivered = False
+                break
+    
+    # Determine new status
+    has_any_delivery = any(item.get("delivered_quantity", 0) > 0 for item in updated_items)
+    if all_delivered:
+        new_status = PurchaseOrderStatus.DELIVERED
+    elif has_any_delivery:
+        new_status = PurchaseOrderStatus.PARTIALLY_DELIVERED
+    else:
+        new_status = order["status"]
+    
+    # Update order
+    update_data = {
+        "items": updated_items,
+        "status": new_status,
+        "supplier_receipt_number": supplier_receipt_number,
+        "delivery_notes": delivery_notes,
+        "received_by_id": current_user["id"],
+        "received_by_name": current_user["name"],
+        "delivered_at": now if new_status == PurchaseOrderStatus.DELIVERED else order.get("delivered_at")
+    }
+    
+    await db.purchase_orders.update_one({"id": order_id}, {"$set": update_data})
+    
+    # Log audit
+    await log_audit(
+        entity_type="order",
+        entity_id=order_id,
+        action="confirm_receipt",
+        user=current_user,
+        description=f"تأكيد استلام أمر الشراء - رقم استلام المورد: {supplier_receipt_number}"
+    )
+    
+    # Create delivery record
+    delivery_record = {
+        "id": str(uuid.uuid4()),
+        "order_id": order_id,
+        "items_delivered": items_delivered,
+        "supplier_receipt_number": supplier_receipt_number,
+        "delivery_date": now,
+        "received_by": current_user["name"],
+        "received_by_id": current_user["id"],
+        "notes": delivery_notes
+    }
+    await db.delivery_records.insert_one(delivery_record)
+    
+    return {
+        "message": "تم تأكيد الاستلام بنجاح",
+        "status": new_status,
+        "supplier_receipt_number": supplier_receipt_number
+    }
+
+@api_router.get("/delivery-tracker/stats")
+async def get_delivery_stats(current_user: dict = Depends(get_current_user)):
+    """إحصائيات متابعة التوريد"""
+    if current_user["role"] not in [UserRole.DELIVERY_TRACKER, UserRole.PROCUREMENT_MANAGER]:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بهذا الإجراء")
+    
+    # Count orders by status
+    shipped_count = await db.purchase_orders.count_documents({"status": PurchaseOrderStatus.SHIPPED})
+    partial_count = await db.purchase_orders.count_documents({"status": PurchaseOrderStatus.PARTIALLY_DELIVERED})
+    delivered_count = await db.purchase_orders.count_documents({"status": PurchaseOrderStatus.DELIVERED})
+    approved_count = await db.purchase_orders.count_documents({"status": PurchaseOrderStatus.APPROVED})
+    printed_count = await db.purchase_orders.count_documents({"status": PurchaseOrderStatus.PRINTED})
+    
+    return {
+        "pending_delivery": shipped_count + partial_count,
+        "shipped": shipped_count,
+        "partially_delivered": partial_count,
+        "delivered": delivered_count,
+        "awaiting_shipment": approved_count + printed_count
+    }
 
 # ==================== AUDIT TRAIL ROUTES ====================
 
