@@ -221,12 +221,6 @@ class MaterialRequestAPITester:
         engineer_id = None
         if isinstance(engineers, list) and len(engineers) > 0:
             engineer_id = engineers[0].get('id')
-        elif isinstance(engineers, dict):
-            # Response might be direct list or wrapped
-            for key, value in engineers.items():
-                if isinstance(value, list) and len(value) > 0:
-                    engineer_id = value[0].get('id')
-                    break
 
         if not engineer_id:
             print("❌ No engineer ID found")
