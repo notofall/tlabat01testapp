@@ -200,6 +200,7 @@ class PurchaseOrderCreate(BaseModel):
     supplier_name: str  # اسم المورد (يدوي أو من القائمة)
     selected_items: List[int]  # قائمة فهارس الأصناف المختارة من الطلب الأصلي
     item_prices: Optional[List[dict]] = None  # أسعار الأصناف [{"index": 0, "unit_price": 100}]
+    category_id: Optional[str] = None  # تصنيف الميزانية
     notes: Optional[str] = None
     terms_conditions: Optional[str] = None  # الشروط والأحكام
     expected_delivery_date: Optional[str] = None  # تاريخ التسليم المتوقع
@@ -212,6 +213,8 @@ class PurchaseOrderResponse(BaseModel):
     project_name: str
     supplier_id: Optional[str] = None
     supplier_name: str
+    category_id: Optional[str] = None  # تصنيف الميزانية
+    category_name: Optional[str] = None  # اسم التصنيف
     notes: Optional[str] = None
     terms_conditions: Optional[str] = None
     manager_id: str
