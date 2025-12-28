@@ -127,6 +127,8 @@ class PurchaseOrderResponse(BaseModel):
     notes: Optional[str] = None
     manager_id: str
     manager_name: str
+    supervisor_name: Optional[str] = None
+    engineer_name: Optional[str] = None
     status: str  # pending_approval, approved, printed
     created_at: str
     approved_at: Optional[str] = None
