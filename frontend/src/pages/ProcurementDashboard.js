@@ -1344,7 +1344,14 @@ const ProcurementDashboard = () => {
       <Dialog open={budgetReportDialogOpen} onOpenChange={setBudgetReportDialogOpen}>
         <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4" dir="rtl">
           <DialogHeader>
-            <DialogTitle>تقرير الميزانية - المقارنة بين التقديري والفعلي</DialogTitle>
+            <DialogTitle className="flex items-center justify-between flex-wrap gap-2">
+              <span>تقرير الميزانية - المقارنة بين التقديري والفعلي</span>
+              {budgetReport && (
+                <Button size="sm" onClick={() => exportBudgetReportToPDF(budgetReport)} className="bg-green-600 hover:bg-green-700">
+                  <Download className="w-4 h-4 ml-1" /> تصدير PDF
+                </Button>
+              )}
+            </DialogTitle>
           </DialogHeader>
           
           {/* Project Filter */}
