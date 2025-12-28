@@ -271,19 +271,33 @@ const ProcurementDashboard = () => {
     if (!supplierName.trim()) { toast.error("الرجاء إدخال اسم المورد"); return; }
     if (selectedItemIndices.length === 0) { toast.error("الرجاء اختيار صنف واحد على الأقل"); return; }
     
+    // Build item prices array
+    const pricesArray = selectedItemIndices.map(idx => ({
+      index: idx,
+      unit_price: parseFloat(itemPrices[idx]) || 0
+    }));
+    
     setSubmitting(true);
     try {
       await axios.post(`${API_URL}/purchase-orders`, { 
         request_id: selectedRequest.id, 
+        supplier_id: selectedSupplierId || null,
         supplier_name: supplierName, 
         selected_items: selectedItemIndices,
-        notes: orderNotes 
+        item_prices: pricesArray,
+        notes: orderNotes,
+        terms_conditions: termsConditions,
+        expected_delivery_date: expectedDeliveryDate || null
       }, getAuthHeaders());
       toast.success("تم إصدار أمر الشراء بنجاح");
       setOrderDialogOpen(false);
+      setSelectedSupplierId("");
       setSupplierName("");
       setOrderNotes("");
+      setTermsConditions("");
+      setExpectedDeliveryDate("");
       setSelectedItemIndices([]);
+      setItemPrices({});
       setSelectedRequest(null);
       fetchData();
     } catch (error) {
@@ -305,6 +319,7 @@ const ProcurementDashboard = () => {
 
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const formatDateFull = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  const formatCurrency = (amount) => `${(amount || 0).toLocaleString('ar-SA')} ر.س`;
   
   const getItemsSummary = (items) => !items?.length ? "-" : items.length === 1 ? items[0].name : `${items[0].name} +${items.length - 1}`;
 
