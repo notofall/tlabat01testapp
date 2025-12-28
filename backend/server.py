@@ -694,8 +694,46 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
     query = {}
     if current_user["role"] == UserRole.PROCUREMENT_MANAGER:
         query["manager_id"] = current_user["id"]
+    elif current_user["role"] == UserRole.PRINTER:
+        # موظف الطباعة يرى فقط الأوامر المعتمدة
+        query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED]}
     
     orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [PurchaseOrderResponse(**o) for o in orders]
+
+# Get remaining items for a request (not yet ordered)
+@api_router.get("/requests/{request_id}/remaining-items")
+async def get_remaining_items(request_id: str, current_user: dict = Depends(get_current_user)):
+    """الحصول على الأصناف المتبقية التي لم يتم إصدار أوامر شراء لها"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بهذا الإجراء")
+    
+    request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    
+    all_items = request.get("items", [])
+    
+    # Get all purchase orders for this request
+    existing_orders = await db.purchase_orders.find({"request_id": request_id}, {"_id": 0}).to_list(100)
+    
+    # Track which items have been ordered
+    ordered_items = []
+    for order in existing_orders:
+        ordered_items.extend(order.get("items", []))
+    
+    # Find remaining items
+    remaining_items = []
+    for idx, item in enumerate(all_items):
+        item_ordered = False
+        for ordered in ordered_items:
+            if ordered["name"] == item["name"] and ordered["quantity"] == item["quantity"]:
+                item_ordered = True
+                break
+        if not item_ordered:
+            remaining_items.append({"index": idx, **item})
+    
+    return {"remaining_items": remaining_items, "all_items": [{"index": i, **item} for i, item in enumerate(all_items)]}
     return [PurchaseOrderResponse(**o) for o in orders]
 
 # ==================== DASHBOARD STATS ====================
