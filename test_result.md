@@ -228,6 +228,21 @@ backend:
         agent: "testing"
         comment: "VERIFIED: Remaining items endpoint working correctly. GET /api/requests/{request_id}/remaining-items returns proper data structure with all_items and remaining_items arrays. Correctly shows 1 remaining item after first PO creation and 0 after second PO creation."
 
+  - task: "Budget Management System"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "BUDGET MANAGEMENT FEATURE IMPLEMENTED: Backend APIs for budget categories (CRUD, reports) working. Frontend UI includes: 1) Budget Categories Management dialog (add/edit/delete categories per project) 2) Budget Report dialog with summary cards and table showing estimated vs actual spending 3) Category selection dropdown in PO creation with real-time budget status (shows if within budget or over budget). All tested via screenshots and curl commands."
+      - working: true
+        agent: "testing"
+        comment: "BUDGET MANAGEMENT COMPREHENSIVE TESTING COMPLETED - 100% SUCCESS: ✅ Backend API Tests: All CRUD operations working perfectly - POST /api/budget-categories (create), GET /api/budget-categories (read with project filtering), PUT /api/budget-categories/{id} (update), DELETE /api/budget-categories/{id} (delete with PO validation). Budget Reports API (GET /api/budget-reports) returns complete data with total_estimated, total_spent, total_remaining, categories array with status, over_budget and under_budget arrays. ✅ Authorization: Only procurement_manager can create/update/delete categories (403 for other roles). ✅ Validation: Missing fields properly rejected (422 status). ✅ PO Integration: Purchase orders can be created with category_id, actual_spent correctly calculated from PO total_amount. ✅ Edge Cases: Cannot delete category with linked POs (400 status with error message), can delete category without POs. ✅ Frontend UI: Budget dialog accessible via 'الميزانيات' button in header, category management form working, budget report dialog with summary cards and detailed table, category selection dropdown in PO creation with real-time budget warnings. All 20 backend tests passed (100% success rate). Budget management system fully functional and ready for production."
+
 frontend:
   - task: "Supervisor Dashboard - Create Material Request Form"
     implemented: true
