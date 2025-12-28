@@ -526,8 +526,24 @@ async def create_purchase_order(
     if not request:
         raise HTTPException(status_code=404, detail="الطلب غير موجود")
     
-    if request["status"] != RequestStatus.APPROVED_BY_ENGINEER:
+    # Allow creating PO for approved or partially ordered requests
+    if request["status"] not in [RequestStatus.APPROVED_BY_ENGINEER, RequestStatus.PARTIALLY_ORDERED]:
         raise HTTPException(status_code=400, detail="الطلب غير معتمد من المهندس")
+    
+    # Get selected items from the request
+    all_items = request.get("items", [])
+    if not order_data.selected_items:
+        raise HTTPException(status_code=400, detail="الرجاء اختيار صنف واحد على الأقل")
+    
+    selected_items = []
+    for idx in order_data.selected_items:
+        if 0 <= idx < len(all_items):
+            selected_items.append(all_items[idx])
+        else:
+            raise HTTPException(status_code=400, detail=f"فهرس الصنف {idx} غير صالح")
+    
+    if not selected_items:
+        raise HTTPException(status_code=400, detail="الرجاء اختيار صنف واحد على الأقل")
     
     order_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -535,22 +551,41 @@ async def create_purchase_order(
     order_doc = {
         "id": order_id,
         "request_id": order_data.request_id,
-        "items": request.get("items", []),
+        "items": selected_items,
         "project_name": request["project_name"],
         "supplier_name": order_data.supplier_name,
         "notes": order_data.notes,
         "manager_id": current_user["id"],
         "manager_name": current_user["name"],
-        "created_at": now
+        "status": PurchaseOrderStatus.PENDING_APPROVAL,
+        "created_at": now,
+        "approved_at": None,
+        "printed_at": None
     }
     
     await db.purchase_orders.insert_one(order_doc)
     
-    # Update request status
+    # Check if all items have been ordered
+    existing_orders = await db.purchase_orders.find({"request_id": order_data.request_id}, {"_id": 0}).to_list(100)
+    ordered_item_indices = set()
+    for order in existing_orders:
+        for item in order.get("items", []):
+            # Find the index of this item in the original request
+            for i, req_item in enumerate(all_items):
+                if req_item["name"] == item["name"] and req_item["quantity"] == item["quantity"]:
+                    ordered_item_indices.add(i)
+                    break
+    
+    # Update request status based on how many items have been ordered
+    if len(ordered_item_indices) >= len(all_items):
+        new_status = RequestStatus.PURCHASE_ORDER_ISSUED
+    else:
+        new_status = RequestStatus.PARTIALLY_ORDERED
+    
     await db.material_requests.update_one(
         {"id": order_data.request_id},
         {"$set": {
-            "status": RequestStatus.PURCHASE_ORDER_ISSUED,
+            "status": new_status,
             "updated_at": now
         }}
     )
@@ -560,7 +595,7 @@ async def create_purchase_order(
     engineer = await db.users.find_one({"id": request["engineer_id"]}, {"_id": 0})
     
     # Build items list for email
-    items_html = "".join([f"<li>{item['name']} - {item['quantity']} {item.get('unit', 'قطعة')}</li>" for item in request.get('items', [])])
+    items_html = "".join([f"<li>{item['name']} - {item['quantity']} {item.get('unit', 'قطعة')}</li>" for item in selected_items])
     
     for user in [supervisor, engineer]:
         if user:
@@ -581,6 +616,78 @@ async def create_purchase_order(
             )
     
     return PurchaseOrderResponse(**{k: v for k, v in order_doc.items() if k != "_id"})
+
+@api_router.put("/purchase-orders/{order_id}/approve")
+async def approve_purchase_order(order_id: str, current_user: dict = Depends(get_current_user)):
+    """اعتماد أمر الشراء من مدير المشتريات"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه اعتماد أوامر الشراء")
+    
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    if order["status"] != PurchaseOrderStatus.PENDING_APPROVAL:
+        raise HTTPException(status_code=400, detail="أمر الشراء تم اعتماده مسبقاً")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db.purchase_orders.update_one(
+        {"id": order_id},
+        {"$set": {
+            "status": PurchaseOrderStatus.APPROVED,
+            "approved_at": now
+        }}
+    )
+    
+    # Notify printers
+    printers = await db.users.find({"role": UserRole.PRINTER}, {"_id": 0}).to_list(10)
+    items_html = "".join([f"<li>{item['name']} - {item['quantity']} {item.get('unit', 'قطعة')}</li>" for item in order.get('items', [])])
+    
+    for printer in printers:
+        email_content = f"""
+        <div dir="rtl" style="font-family: Arial, sans-serif;">
+            <h2>أمر شراء جاهز للطباعة</h2>
+            <p>مرحباً {printer['name']},</p>
+            <p>تم اعتماد أمر شراء جديد ويحتاج للطباعة:</p>
+            <p><strong>المواد:</strong></p>
+            <ul>{items_html}</ul>
+            <p><strong>المورد:</strong> {order['supplier_name']}</p>
+            <p><strong>المشروع:</strong> {order['project_name']}</p>
+        </div>
+        """
+        await send_email_notification(
+            printer["email"],
+            "أمر شراء جاهز للطباعة",
+            email_content
+        )
+    
+    return {"message": "تم اعتماد أمر الشراء بنجاح"}
+
+@api_router.put("/purchase-orders/{order_id}/print")
+async def mark_purchase_order_printed(order_id: str, current_user: dict = Depends(get_current_user)):
+    """تسجيل طباعة أمر الشراء من موظف الطباعة"""
+    if current_user["role"] != UserRole.PRINTER:
+        raise HTTPException(status_code=403, detail="فقط موظف الطباعة يمكنه تسجيل الطباعة")
+    
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    if order["status"] != PurchaseOrderStatus.APPROVED:
+        raise HTTPException(status_code=400, detail="أمر الشراء غير معتمد أو تمت طباعته مسبقاً")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db.purchase_orders.update_one(
+        {"id": order_id},
+        {"$set": {
+            "status": PurchaseOrderStatus.PRINTED,
+            "printed_at": now
+        }}
+    )
+    
+    return {"message": "تم تسجيل طباعة أمر الشراء بنجاح"}
 
 @api_router.get("/purchase-orders", response_model=List[PurchaseOrderResponse])
 async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
