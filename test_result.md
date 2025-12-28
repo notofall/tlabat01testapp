@@ -101,3 +101,115 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: Material procurement management web app for supervisors, engineers and procurement manager with multi-item requests, approval workflow, and purchase orders.
+
+backend:
+  - task: "User Authentication (Login/Register)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Auth system working - tested with supervisor, engineer, manager accounts"
+
+  - task: "Create Material Requests with Multiple Items"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Multi-item requests working correctly"
+
+  - task: "Request Approval/Rejection by Engineer"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Approval workflow functioning"
+
+  - task: "Create Purchase Orders"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "PO creation tested and working"
+
+frontend:
+  - task: "Supervisor Dashboard - Create Material Request Form"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/SupervisorDashboard.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Cursor disappears after each character typed"
+      - working: true
+        agent: "main"
+        comment: "Fixed by moving ItemInput component inline instead of using memo. Tested typing 'حديد تسليح' - cursor stays in place"
+
+  - task: "Purchase Order PDF Export"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/utils/pdfExport.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "TypeError: e.map is not a function when exporting PO PDF"
+      - working: true
+        agent: "main"
+        comment: "Fixed by changing import style and using autoTable(doc, {...}) syntax. PDF now generates without errors"
+
+  - task: "Procurement Manager Dashboard"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/ProcurementDashboard.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Dashboard working with date filtering and reporting"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Verify cursor fix in material request form"
+    - "Verify PDF export for purchase orders"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Fixed two critical bugs: 1) Cursor focus issue in SupervisorDashboard by moving ItemInput inline 2) PDF export error by using correct jspdf-autotable import syntax. Please verify both fixes work correctly."
