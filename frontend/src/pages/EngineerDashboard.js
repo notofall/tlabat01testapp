@@ -31,7 +31,10 @@ import {
   FileText,
   Check,
   X,
+  Eye,
+  Download,
 } from "lucide-react";
+import { exportRequestToPDF, exportRequestsTableToPDF } from "../utils/pdfExport";
 
 const EngineerDashboard = () => {
   const { user, logout, getAuthHeaders, API_URL } = useAuth();
@@ -40,6 +43,7 @@ const EngineerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -98,6 +102,11 @@ const EngineerDashboard = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const openViewDialog = (request) => {
+    setSelectedRequest(request);
+    setViewDialogOpen(true);
   };
 
   const getStatusBadge = (status) => {
@@ -224,15 +233,27 @@ const EngineerDashboard = () => {
                 </span>
               )}
             </h2>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              className="border-slate-300"
-              data-testid="refresh-btn"
-            >
-              <RefreshCw className="w-4 h-4 ml-2" />
-              تحديث
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => exportRequestsTableToPDF(requests, 'طلبات المهندس')}
+                className="border-slate-300"
+                disabled={requests.length === 0}
+                data-testid="export-all-pdf-btn"
+              >
+                <Download className="w-4 h-4 ml-2" />
+                تصدير PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={fetchData}
+                className="border-slate-300"
+                data-testid="refresh-btn"
+              >
+                <RefreshCw className="w-4 h-4 ml-2" />
+                تحديث
+              </Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -268,7 +289,16 @@ const EngineerDashboard = () => {
                           {formatDate(request.created_at)}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openViewDialog(request)}
+                              className="h-8 w-8 p-0"
+                              data-testid={`view-btn-${request.id}`}
+                            >
+                              <Eye className="w-4 h-4 text-slate-600" />
+                            </Button>
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700 text-white"
@@ -323,6 +353,7 @@ const EngineerDashboard = () => {
                       <TableHead className="text-right font-bold">المشرف</TableHead>
                       <TableHead className="text-right font-bold">الحالة</TableHead>
                       <TableHead className="text-right font-bold">التاريخ</TableHead>
+                      <TableHead className="text-right font-bold">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -336,6 +367,26 @@ const EngineerDashboard = () => {
                         <TableCell className="text-slate-500 text-sm">
                           {formatDate(request.created_at)}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openViewDialog(request)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Eye className="w-4 h-4 text-slate-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => exportRequestToPDF(request)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Download className="w-4 h-4 text-green-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -345,6 +396,62 @@ const EngineerDashboard = () => {
           </Card>
         </div>
       </main>
+
+      {/* View Request Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">تفاصيل الطلب</DialogTitle>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4 mt-4">
+              <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">اسم المادة:</span>
+                  <span className="font-semibold">{selectedRequest.material_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الكمية:</span>
+                  <span className="font-semibold">{selectedRequest.quantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المشروع:</span>
+                  <span className="font-semibold">{selectedRequest.project_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المشرف:</span>
+                  <span className="font-semibold">{selectedRequest.supervisor_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الحالة:</span>
+                  {getStatusBadge(selectedRequest.status)}
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">التاريخ:</span>
+                  <span className="font-semibold">{formatDate(selectedRequest.created_at)}</span>
+                </div>
+                <div className="pt-2 border-t">
+                  <span className="text-slate-500 block mb-1">سبب الطلب:</span>
+                  <p className="font-medium">{selectedRequest.reason}</p>
+                </div>
+                {selectedRequest.rejection_reason && (
+                  <div className="pt-2 border-t bg-red-50 p-3 rounded">
+                    <span className="text-red-600 block mb-1">سبب الرفض:</span>
+                    <p className="font-medium text-red-800">{selectedRequest.rejection_reason}</p>
+                  </div>
+                )}
+              </div>
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => exportRequestToPDF(selectedRequest)}
+              >
+                <Download className="w-4 h-4 ml-2" />
+                تصدير PDF
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
