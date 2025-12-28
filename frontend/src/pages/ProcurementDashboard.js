@@ -111,13 +111,32 @@ const ProcurementDashboard = () => {
     setReportDialogOpen(false);
   };
 
-  const openOrderDialog = (request) => {
+  // State for remaining items
+  const [remainingItems, setRemainingItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const openOrderDialog = async (request) => {
     setSelectedRequest(request);
     setSupplierName("");
     setOrderNotes("");
-    // Select all items by default
-    setSelectedItemIndices(request.items.map((_, idx) => idx));
+    setSelectedItemIndices([]);
+    setLoadingItems(true);
     setOrderDialogOpen(true);
+    
+    try {
+      // Fetch remaining items from API
+      const res = await axios.get(`${API_URL}/requests/${request.id}/remaining-items`, getAuthHeaders());
+      const remaining = res.data.remaining_items || [];
+      setRemainingItems(remaining);
+      // Select all remaining items by default
+      setSelectedItemIndices(remaining.map(item => item.index));
+    } catch (error) {
+      // If API fails, show all items
+      setRemainingItems(request.items.map((item, idx) => ({ index: idx, ...item })));
+      setSelectedItemIndices(request.items.map((_, idx) => idx));
+    } finally {
+      setLoadingItems(false);
+    }
   };
 
   const toggleItemSelection = (idx) => {
