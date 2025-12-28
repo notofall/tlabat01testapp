@@ -73,6 +73,9 @@ const ProcurementDashboard = () => {
   // Request filter view mode
   const [requestViewMode, setRequestViewMode] = useState("all"); // "all", "pending", "approved", "delivered"
   
+  // Orders filter view mode
+  const [ordersViewMode, setOrdersViewMode] = useState("all"); // "all", "pending", "approved", "shipped", "delivered"
+  
   // Edit Purchase Order states
   const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
