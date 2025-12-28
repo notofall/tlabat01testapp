@@ -258,39 +258,33 @@ class MaterialRequestAPITester:
         )
         return success
 
-    def run_full_workflow_test(self):
-        """Test complete workflow"""
-        print("\n🔄 Starting Full Workflow Test...")
+    def run_new_features_test(self):
+        """Test new features: Multiple POs, Approval Workflow, Printer Role"""
+        print("\n🆕 Starting New Features Test...")
         
         # 1. Health check
         if not self.test_health_check():
             print("❌ Health check failed, stopping tests")
             return False
 
-        # 2. Login all users
-        print("\n📝 Testing Authentication...")
+        # 2. Login all users including printer
+        print("\n📝 Testing Authentication (Including Printer)...")
         self.supervisor_token = self.test_login("supervisor1@test.com", "123456", "Supervisor")
         self.engineer_token = self.test_login("engineer1@test.com", "123456", "Engineer")
         self.manager_token = self.test_login("manager1@test.com", "123456", "Procurement Manager")
+        self.printer_token = self.test_login("printer1@test.com", "123456", "Printer")
 
-        if not all([self.supervisor_token, self.engineer_token, self.manager_token]):
+        if not all([self.supervisor_token, self.engineer_token, self.manager_token, self.printer_token]):
             print("❌ Authentication failed for one or more users")
             return False
 
-        # 3. Test dashboard stats for all roles
-        print("\n📊 Testing Dashboard Stats...")
-        self.test_dashboard_stats(self.supervisor_token, "Supervisor")
-        self.test_dashboard_stats(self.engineer_token, "Engineer")
-        self.test_dashboard_stats(self.manager_token, "Procurement Manager")
-
-        # 4. Get engineers list
-        print("\n👥 Testing Engineers List...")
+        # 3. Get engineers list
+        print("\n👥 Getting Engineer ID...")
         success, engineers = self.test_get_engineers(self.supervisor_token)
         if not success or not engineers:
             print("❌ Failed to get engineers list")
             return False
 
-        # Find engineer ID
         engineer_id = None
         if isinstance(engineers, list) and len(engineers) > 0:
             engineer_id = engineers[0].get('id')
@@ -299,37 +293,86 @@ class MaterialRequestAPITester:
             print("❌ No engineer ID found")
             return False
 
-        # 5. Create material request
-        print("\n📋 Testing Material Request Creation...")
+        # 4. Create material request with multiple items
+        print("\n📋 Creating Material Request with Multiple Items...")
         success, request_id = self.test_create_material_request(self.supervisor_token, engineer_id)
         if not success or not request_id:
             print("❌ Failed to create material request")
             return False
 
-        # 6. Get requests for all roles
-        print("\n📄 Testing Get Requests...")
-        self.test_get_requests(self.supervisor_token, "Supervisor")
-        self.test_get_requests(self.engineer_token, "Engineer")
-        self.test_get_requests(self.manager_token, "Procurement Manager")
-
-        # 7. Approve request
-        print("\n✅ Testing Request Approval...")
+        # 5. Approve request
+        print("\n✅ Approving Request...")
         if not self.test_approve_request(self.engineer_token, request_id):
             print("❌ Failed to approve request")
             return False
 
-        # 8. Create purchase order
-        print("\n🛒 Testing Purchase Order Creation...")
-        success, order_id = self.test_create_purchase_order(self.manager_token, request_id)
+        # 6. Test remaining items endpoint
+        print("\n📄 Testing Remaining Items Endpoint...")
+        success, remaining_data = self.test_get_remaining_items(self.manager_token, request_id)
         if not success:
-            print("❌ Failed to create purchase order")
+            print("❌ Failed to get remaining items")
             return False
 
-        # 9. Get purchase orders
-        print("\n📦 Testing Get Purchase Orders...")
-        self.test_get_purchase_orders(self.manager_token)
+        # 7. Create first PO with selected items (items 0 and 1)
+        print("\n🛒 Creating First PO with Selected Items [0, 1]...")
+        success, order_id_1 = self.test_create_purchase_order_with_selected_items(
+            self.manager_token, request_id, [0, 1]
+        )
+        if not success or not order_id_1:
+            print("❌ Failed to create first purchase order")
+            return False
 
-        print("\n🎉 Full workflow test completed!")
+        # 8. Check remaining items after first PO
+        print("\n📄 Checking Remaining Items After First PO...")
+        success, remaining_data = self.test_get_remaining_items(self.manager_token, request_id)
+        if success:
+            remaining_items = remaining_data.get('remaining_items', [])
+            print(f"   Remaining items count: {len(remaining_items)}")
+
+        # 9. Create second PO with remaining item (item 2)
+        print("\n🛒 Creating Second PO with Remaining Item [2]...")
+        success, order_id_2 = self.test_create_purchase_order_with_selected_items(
+            self.manager_token, request_id, [2]
+        )
+        if not success or not order_id_2:
+            print("❌ Failed to create second purchase order")
+            return False
+
+        # 10. Test PO approval workflow
+        print("\n✅ Testing PO Approval Workflow...")
+        if not self.test_approve_purchase_order(self.manager_token, order_id_1):
+            print("❌ Failed to approve first purchase order")
+            return False
+
+        if not self.test_approve_purchase_order(self.manager_token, order_id_2):
+            print("❌ Failed to approve second purchase order")
+            return False
+
+        # 11. Test printer role - get POs
+        print("\n🖨️ Testing Printer Role - Get Approved POs...")
+        success = self.test_get_purchase_orders(self.printer_token)
+        if not success:
+            print("❌ Printer failed to get purchase orders")
+            return False
+
+        # 12. Test printer role - mark as printed
+        print("\n🖨️ Testing Printer Role - Mark POs as Printed...")
+        if not self.test_print_purchase_order(self.printer_token, order_id_1):
+            print("❌ Failed to mark first PO as printed")
+            return False
+
+        if not self.test_print_purchase_order(self.printer_token, order_id_2):
+            print("❌ Failed to mark second PO as printed")
+            return False
+
+        # 13. Test dashboard stats for all roles including printer
+        print("\n📊 Testing Dashboard Stats for All Roles...")
+        self.test_dashboard_stats(self.supervisor_token, "Supervisor")
+        self.test_dashboard_stats(self.engineer_token, "Engineer")
+        self.test_dashboard_stats(self.manager_token, "Procurement Manager")
+        self.test_dashboard_stats(self.printer_token, "Printer")
+
+        print("\n🎉 New features test completed!")
         return True
 
 def main():
