@@ -1293,7 +1293,7 @@ async def get_all_requests(current_user: dict = Depends(get_current_user)):
 # Model for updating request
 class MaterialRequestEdit(BaseModel):
     items: List[MaterialItem]
-    project_id: str  # معرف المشروع
+    project_id: Optional[str] = None  # معرف المشروع (اختياري للطلبات القديمة)
     reason: str
     engineer_id: str
 
@@ -1322,11 +1322,6 @@ async def edit_request(
     if not engineer or engineer["role"] != UserRole.ENGINEER:
         raise HTTPException(status_code=400, detail="المهندس غير موجود")
     
-    # Get project info
-    project = await db.projects.find_one({"id": edit_data.project_id}, {"_id": 0})
-    if not project:
-        raise HTTPException(status_code=400, detail="المشروع غير موجود")
-    
     now = datetime.now(timezone.utc).isoformat()
     
     # Convert items to dict format
@@ -1334,13 +1329,18 @@ async def edit_request(
     
     update_data = {
         "items": items_list,
-        "project_id": edit_data.project_id,
-        "project_name": project["name"],
         "reason": edit_data.reason,
         "engineer_id": edit_data.engineer_id,
         "engineer_name": engineer["name"],
         "updated_at": now
     }
+    
+    # Get project info if project_id provided
+    if edit_data.project_id:
+        project = await db.projects.find_one({"id": edit_data.project_id}, {"_id": 0})
+        if project:
+            update_data["project_id"] = edit_data.project_id
+            update_data["project_name"] = project["name"]
     
     await db.material_requests.update_one(
         {"id": request_id},
