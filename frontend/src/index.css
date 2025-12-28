@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Emergent badge */
+#emergent-badge,
+a[href*="emergent.sh"][style*="position: fixed"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
 * {
     margin: 0;
     padding: 0;
