@@ -580,80 +580,149 @@ const ProcurementDashboard = () => {
           </Card>
         </div>
 
-        {/* Approved Requests */}
+        {/* Requests Section - Improved UI */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
-              <Clock className="w-5 h-5 text-yellow-600" />
-              طلبات معتمدة
-              {requests.length > 0 && <Badge className="bg-yellow-500 text-white">{requests.length}</Badge>}
+              <FileText className="w-5 h-5 text-slate-700" />
+              الطلبات
             </h2>
-            <Button variant="outline" size="sm" onClick={fetchData} className="h-8"><RefreshCw className="w-3 h-3" /></Button>
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                size="sm" 
+                variant={requestViewMode === "all" ? "default" : "outline"}
+                onClick={() => setRequestViewMode("all")}
+                className={`h-8 text-xs ${requestViewMode === "all" ? "bg-slate-800" : ""}`}
+              >
+                الكل
+                <Badge className="mr-1 bg-slate-600 text-white text-xs">{requests.length}</Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={requestViewMode === "pending" ? "default" : "outline"}
+                onClick={() => setRequestViewMode("pending")}
+                className={`h-8 text-xs ${requestViewMode === "pending" ? "bg-yellow-600" : "text-yellow-700 border-yellow-300"}`}
+              >
+                بانتظار المهندس
+                <Badge className="mr-1 bg-yellow-500 text-white text-xs">
+                  {requests.filter(r => r.status === "pending_engineer").length}
+                </Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={requestViewMode === "approved" ? "default" : "outline"}
+                onClick={() => setRequestViewMode("approved")}
+                className={`h-8 text-xs ${requestViewMode === "approved" ? "bg-green-600" : "text-green-700 border-green-300"}`}
+              >
+                معتمدة
+                <Badge className="mr-1 bg-green-500 text-white text-xs">
+                  {requests.filter(r => ["approved_by_engineer", "partially_ordered"].includes(r.status)).length}
+                </Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={requestViewMode === "ordered" ? "default" : "outline"}
+                onClick={() => setRequestViewMode("ordered")}
+                className={`h-8 text-xs ${requestViewMode === "ordered" ? "bg-blue-600" : "text-blue-700 border-blue-300"}`}
+              >
+                تم الإصدار
+                <Badge className="mr-1 bg-blue-500 text-white text-xs">
+                  {requests.filter(r => r.status === "ordered").length}
+                </Badge>
+              </Button>
+              <Button variant="outline" size="sm" onClick={fetchData} className="h-8 w-8 p-0"><RefreshCw className="w-3 h-3" /></Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
             <CardContent className="p-0">
-              {!requests.length ? (
-                <div className="text-center py-8"><CheckCircle className="w-10 h-10 text-green-300 mx-auto mb-2" /><p className="text-slate-500 text-sm">لا توجد طلبات معلقة</p></div>
-              ) : (
-                <>
-                  {/* Mobile */}
-                  <div className="sm:hidden divide-y">
-                    {requests.map((req) => (
-                      <div key={req.id} className="p-3 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-sm">{getItemsSummary(req.items)}</p>
-                            <p className="text-xs text-slate-500">{req.project_name}</p>
+              {(() => {
+                // Filter requests based on view mode
+                const filteredRequests = requests.filter(req => {
+                  if (requestViewMode === "all") return true;
+                  if (requestViewMode === "pending") return req.status === "pending_engineer";
+                  if (requestViewMode === "approved") return ["approved_by_engineer", "partially_ordered"].includes(req.status);
+                  if (requestViewMode === "ordered") return req.status === "ordered";
+                  return true;
+                });
+                
+                if (!filteredRequests.length) {
+                  return (
+                    <div className="text-center py-8">
+                      <CheckCircle className="w-10 h-10 text-green-300 mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">لا توجد طلبات</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <>
+                    {/* Mobile */}
+                    <div className="sm:hidden divide-y">
+                      {filteredRequests.map((req) => (
+                        <div key={req.id} className={`p-3 space-y-2 ${req.status === "ordered" ? "bg-blue-50/50" : ""}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium text-sm">{req.request_number || req.id?.slice(0, 8).toUpperCase()}</p>
+                              <p className="text-xs text-slate-600">{getItemsSummary(req.items)}</p>
+                              <p className="text-xs text-slate-500">{req.project_name}</p>
+                            </div>
+                            {getRequestStatusBadge(req.status)}
                           </div>
-                          {getRequestStatusBadge(req.status)}
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-slate-400">{formatDate(req.created_at)}</span>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
-                            <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => openOrderDialog(req)}>
-                              <ShoppingCart className="w-3 h-3 ml-1" />إصدار
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Desktop */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <Table>
-                      <TableHeader><TableRow className="bg-slate-50">
-                        <TableHead className="text-right">الأصناف</TableHead>
-                        <TableHead className="text-right">المشروع</TableHead>
-                        <TableHead className="text-right">المشرف</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
-                        <TableHead className="text-right">التاريخ</TableHead>
-                        <TableHead className="text-right">الإجراء</TableHead>
-                      </TableRow></TableHeader>
-                      <TableBody>
-                        {requests.map((req) => (
-                          <TableRow key={req.id}>
-                            <TableCell className="font-medium">{getItemsSummary(req.items)}</TableCell>
-                            <TableCell>{req.project_name}</TableCell>
-                            <TableCell>{req.supervisor_name}</TableCell>
-                            <TableCell>{getRequestStatusBadge(req.status)}</TableCell>
-                            <TableCell className="text-sm text-slate-500">{formatDate(req.created_at)}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                                <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => openOrderDialog(req)}>
-                                  <ShoppingCart className="w-4 h-4 ml-1" />إصدار أمر
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-400">{formatDate(req.created_at)}</span>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
+                              {["approved_by_engineer", "partially_ordered"].includes(req.status) && (
+                                <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => openOrderDialog(req)}>
+                                  <ShoppingCart className="w-3 h-3 ml-1" />إصدار
                                 </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <Table>
+                        <TableHeader><TableRow className="bg-slate-50">
+                          <TableHead className="text-right">رقم الطلب</TableHead>
+                          <TableHead className="text-right">الأصناف</TableHead>
+                          <TableHead className="text-right">المشروع</TableHead>
+                          <TableHead className="text-right">المشرف</TableHead>
+                          <TableHead className="text-center">الحالة</TableHead>
+                          <TableHead className="text-right">التاريخ</TableHead>
+                          <TableHead className="text-center">الإجراء</TableHead>
+                        </TableRow></TableHeader>
+                        <TableBody>
+                          {filteredRequests.map((req) => (
+                            <TableRow key={req.id} className={req.status === "ordered" ? "bg-blue-50/30" : ""}>
+                              <TableCell className="font-bold text-orange-600">{req.request_number || req.id?.slice(0, 8).toUpperCase()}</TableCell>
+                              <TableCell className="text-sm">{getItemsSummary(req.items)}</TableCell>
+                              <TableCell>{req.project_name}</TableCell>
+                              <TableCell className="text-sm">{req.supervisor_name}</TableCell>
+                              <TableCell className="text-center">{getRequestStatusBadge(req.status)}</TableCell>
+                              <TableCell className="text-sm text-slate-500">{formatDate(req.created_at)}</TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex gap-1 justify-center">
+                                  <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
+                                  {["approved_by_engineer", "partially_ordered"].includes(req.status) && (
+                                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => openOrderDialog(req)}>
+                                      <ShoppingCart className="w-4 h-4 ml-1" />إصدار
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>
