@@ -608,21 +608,42 @@ class MaterialRequestAPITester:
             "received_by": "Test User"
         }
         
-        # Create another order for this test
-        success, test_order_id = self.test_create_purchase_order_with_selected_items(
-            self.manager_token, request_id, [0]
-        )
-        if success and test_order_id:
-            self.test_approve_purchase_order(self.manager_token, test_order_id)
-            self.test_print_purchase_order(self.printer_token, test_order_id)
-            self.test_ship_order(self.manager_token, test_order_id, 200)
-            
-            # This should work as the API doesn't explicitly prevent 0 quantity
-            success, _ = self.test_deliver_order(self.supervisor_token, test_order_id, zero_delivery_data, 200)
-            if success:
-                print("✅ Zero quantity delivery handled (API allows this)")
-            else:
-                print("❌ Zero quantity delivery failed unexpectedly")
+        # Create another request and order for this test
+        print("\n🔄 Creating new request for edge case testing...")
+        success, test_request_id = self.test_create_material_request(self.supervisor_token, engineer_id)
+        if success and test_request_id:
+            self.test_approve_request(self.engineer_token, test_request_id)
+            success, test_order_id = self.test_create_purchase_order_with_selected_items(
+                self.manager_token, test_request_id, [0]
+            )
+            if success and test_order_id:
+                self.test_approve_purchase_order(self.manager_token, test_order_id)
+                self.test_print_purchase_order(self.printer_token, test_order_id)
+                self.test_ship_order(self.manager_token, test_order_id, 200)
+                
+                # This should work as the API doesn't explicitly prevent 0 quantity
+                success, _ = self.test_deliver_order(self.supervisor_token, test_order_id, zero_delivery_data, 200)
+                if success:
+                    print("✅ Zero quantity delivery handled (API allows this)")
+                else:
+                    print("❌ Zero quantity delivery failed unexpectedly")
+
+        # Test shipping workflow edge cases
+        print("\n🚢 Testing Shipping Edge Cases...")
+        
+        # Create another order to test shipping a pending order
+        success, pending_request_id = self.test_create_material_request(self.supervisor_token, engineer_id)
+        if success and pending_request_id:
+            self.test_approve_request(self.engineer_token, pending_request_id)
+            success, pending_order_id = self.test_create_purchase_order_with_selected_items(
+                self.manager_token, pending_request_id, [0]
+            )
+            if success and pending_order_id:
+                # Try to ship a pending order (should fail - must be printed first)
+                if self.test_ship_order(self.manager_token, pending_order_id, 400):
+                    print("✅ Correctly prevented shipping pending order (must be printed first)")
+                else:
+                    print("❌ Should have prevented shipping pending order")
 
         print("\n🎉 Delivery tracking test completed!")
         return True
