@@ -295,6 +295,10 @@ export const exportPurchaseOrderToPDF = (order) => {
           <td style="border: none; padding: 8px 0;"><span class="info-label">مدير المشتريات:</span> ${order.manager_name || '-'}</td>
         </tr>
         <tr style="border: none;">
+          <td style="border: none; padding: 8px 0;"><span class="info-label">المشرف:</span> ${order.supervisor_name || '-'}</td>
+          <td style="border: none; padding: 8px 0;"><span class="info-label">المهندس:</span> ${order.engineer_name || '-'}</td>
+        </tr>
+        <tr style="border: none;">
           <td style="border: none; padding: 8px 0;"><span class="info-label">الحالة:</span> <span class="badge badge-blue">${getOrderStatusTextAr(order.status)}</span></td>
           <td style="border: none; padding: 8px 0;">${order.approved_at ? `<span class="info-label">تاريخ الاعتماد:</span> ${formatDate(order.approved_at)}` : ''}</td>
         </tr>
