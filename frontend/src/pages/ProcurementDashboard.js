@@ -488,7 +488,7 @@ const ProcurementDashboard = () => {
                             <TableCell>
                               <div className="flex gap-1">
                                 <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                                <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                                <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order).catch(() => toast.error("فشل التصدير"))} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
                               </div>
                             </TableCell>
                           </TableRow>
