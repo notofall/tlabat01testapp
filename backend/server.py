@@ -375,9 +375,11 @@ async def edit_request(
     
     now = datetime.now(timezone.utc).isoformat()
     
+    # Convert items to dict format
+    items_list = [item.model_dump() for item in edit_data.items]
+    
     update_data = {
-        "material_name": edit_data.material_name,
-        "quantity": edit_data.quantity,
+        "items": items_list,
         "project_name": edit_data.project_name,
         "reason": edit_data.reason,
         "engineer_id": edit_data.engineer_id,
