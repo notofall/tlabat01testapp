@@ -1597,6 +1597,98 @@ async def create_purchase_order(
     
     return PurchaseOrderResponse(**{k: v for k, v in order_doc.items() if k != "_id"})
 
+@api_router.put("/purchase-orders/{order_id}")
+async def update_purchase_order(
+    order_id: str,
+    update_data: PurchaseOrderUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """تعديل أمر الشراء - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه تعديل أوامر الشراء")
+    
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    # Prepare update fields
+    update_fields = {}
+    
+    if update_data.supplier_name:
+        update_fields["supplier_name"] = update_data.supplier_name
+    
+    if update_data.supplier_id:
+        update_fields["supplier_id"] = update_data.supplier_id
+    
+    if update_data.category_id:
+        category = await db.budget_categories.find_one({"id": update_data.category_id}, {"_id": 0})
+        if category:
+            update_fields["category_id"] = update_data.category_id
+            update_fields["category_name"] = category["name"]
+    
+    if update_data.notes is not None:
+        update_fields["notes"] = update_data.notes
+    
+    if update_data.terms_conditions is not None:
+        update_fields["terms_conditions"] = update_data.terms_conditions
+    
+    if update_data.expected_delivery_date:
+        update_fields["expected_delivery_date"] = update_data.expected_delivery_date
+    
+    if update_data.supplier_invoice_number is not None:
+        update_fields["supplier_invoice_number"] = update_data.supplier_invoice_number
+    
+    # Update item prices if provided
+    if update_data.item_prices:
+        items = order.get("items", [])
+        total_amount = 0
+        
+        # Create a map of item name to price for easier lookup
+        price_map = {}
+        for price_item in update_data.item_prices:
+            item_name = price_item.get("name", "")
+            item_index = price_item.get("index")
+            unit_price = price_item.get("unit_price", 0)
+            
+            if item_name:
+                price_map[item_name] = unit_price
+            elif item_index is not None and item_index < len(items):
+                items[item_index]["unit_price"] = unit_price
+                items[item_index]["total_price"] = unit_price * items[item_index].get("quantity", 0)
+        
+        # Apply prices by name
+        for item in items:
+            if item.get("name") in price_map:
+                unit_price = price_map[item["name"]]
+                item["unit_price"] = unit_price
+                item["total_price"] = unit_price * item.get("quantity", 0)
+            total_amount += item.get("total_price", 0)
+        
+        update_fields["items"] = items
+        update_fields["total_amount"] = total_amount
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="لا توجد بيانات للتحديث")
+    
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.purchase_orders.update_one(
+        {"id": order_id},
+        {"$set": update_fields}
+    )
+    
+    # Log audit
+    await log_audit(
+        entity_type="purchase_order",
+        entity_id=order_id,
+        action="update",
+        user=current_user,
+        description=f"تم تعديل أمر الشراء"
+    )
+    
+    updated_order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    return PurchaseOrderResponse(**updated_order)
+
 @api_router.put("/purchase-orders/{order_id}/approve")
 async def approve_purchase_order(order_id: str, current_user: dict = Depends(get_current_user)):
     """اعتماد أمر الشراء من مدير المشتريات"""
