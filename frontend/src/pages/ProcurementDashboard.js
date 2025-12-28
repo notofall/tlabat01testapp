@@ -670,14 +670,30 @@ const ProcurementDashboard = () => {
                         <TableHead className="text-right">رقم الطلب</TableHead>
                         <TableHead className="text-right">المشروع</TableHead>
                         <TableHead className="text-right">المورد</TableHead>
+                        <TableHead className="text-right">المبلغ</TableHead>
                         <TableHead className="text-right">الحالة</TableHead>
-                        <TableHead className="text-right">التاريخ</TableHead>
                         <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>
                         {approvedOrders.map((order) => (
                           <TableRow key={order.id}>
                             <TableCell className="font-mono text-orange-600 font-bold">{order.id?.slice(0, 8).toUpperCase()}</TableCell>
+                            <TableCell className="font-bold text-blue-600">{order.request_number || order.request_id?.slice(0, 8).toUpperCase()}</TableCell>
+                            <TableCell>{order.project_name}</TableCell>
+                            <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
+                            <TableCell className="font-bold text-emerald-600">{order.total_amount > 0 ? `${order.total_amount.toLocaleString('ar-SA')} ر.س` : '-'}</TableCell>
+                            <TableCell>{getOrderStatusBadge(order.status)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
+                                <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                             <TableCell className="font-bold text-blue-600">{order.request_number || order.request_id?.slice(0, 8).toUpperCase()}</TableCell>
                             <TableCell>{order.project_name}</TableCell>
                             <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
