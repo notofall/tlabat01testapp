@@ -426,6 +426,207 @@ class MaterialRequestAPITester:
         print("\n🎉 New features test completed!")
         return True
 
+    def run_delivery_tracking_test(self):
+        """Test complete delivery tracking workflow"""
+        print("\n🚚 Starting Delivery Tracking Workflow Test...")
+        
+        # 1. Health check
+        if not self.test_health_check():
+            print("❌ Health check failed, stopping tests")
+            return False
+
+        # 2. Login all users
+        print("\n📝 Testing Authentication...")
+        self.supervisor_token = self.test_login("supervisor1@test.com", "123456", "Supervisor")
+        self.engineer_token = self.test_login("engineer1@test.com", "123456", "Engineer")
+        self.manager_token = self.test_login("manager1@test.com", "123456", "Procurement Manager")
+        self.printer_token = self.test_login("printer1@test.com", "123456", "Printer")
+
+        if not all([self.supervisor_token, self.engineer_token, self.manager_token, self.printer_token]):
+            print("❌ Authentication failed for one or more users")
+            return False
+
+        # 3. Get engineers list
+        print("\n👥 Getting Engineer ID...")
+        success, engineers = self.test_get_engineers(self.supervisor_token)
+        if not success or not engineers:
+            print("❌ Failed to get engineers list")
+            return False
+
+        engineer_id = None
+        if isinstance(engineers, list) and len(engineers) > 0:
+            engineer_id = engineers[0].get('id')
+
+        if not engineer_id:
+            print("❌ No engineer ID found")
+            return False
+
+        # 4. Create material request
+        print("\n📋 Creating Material Request...")
+        success, request_id = self.test_create_material_request(self.supervisor_token, engineer_id)
+        if not success or not request_id:
+            print("❌ Failed to create material request")
+            return False
+
+        # 5. Approve request
+        print("\n✅ Approving Request...")
+        if not self.test_approve_request(self.engineer_token, request_id):
+            print("❌ Failed to approve request")
+            return False
+
+        # 6. Create purchase order
+        print("\n🛒 Creating Purchase Order...")
+        success, order_id = self.test_create_purchase_order_with_selected_items(
+            self.manager_token, request_id, [0, 1, 2]
+        )
+        if not success or not order_id:
+            print("❌ Failed to create purchase order")
+            return False
+
+        # 7. Approve purchase order
+        print("\n✅ Approving Purchase Order...")
+        if not self.test_approve_purchase_order(self.manager_token, order_id):
+            print("❌ Failed to approve purchase order")
+            return False
+
+        # 8. Print purchase order
+        print("\n🖨️ Printing Purchase Order...")
+        if not self.test_print_purchase_order(self.printer_token, order_id):
+            print("❌ Failed to print purchase order")
+            return False
+
+        # 9. Test shipping workflow
+        print("\n🚢 Testing Shipping Workflow...")
+        
+        # Test shipping a printed order (should succeed)
+        if not self.test_ship_order(self.manager_token, order_id, 200):
+            print("❌ Failed to ship printed order")
+            return False
+
+        # Test shipping an already shipped order (should fail)
+        if self.test_ship_order(self.manager_token, order_id, 400):
+            print("✅ Correctly prevented shipping already shipped order")
+        else:
+            print("❌ Should have prevented shipping already shipped order")
+
+        # 10. Test pending delivery API
+        print("\n📦 Testing Pending Delivery API...")
+        
+        # As supervisor, should see shipped orders
+        success, pending_orders = self.test_get_pending_delivery_orders(self.supervisor_token, "Supervisor")
+        if not success:
+            print("❌ Failed to get pending deliveries as supervisor")
+            return False
+        
+        print(f"   Supervisor sees {len(pending_orders)} pending delivery orders")
+
+        # As manager, should return empty array (endpoint is for supervisor/engineer only)
+        success, manager_orders = self.test_get_pending_delivery_orders(self.manager_token, "Manager")
+        if success and len(manager_orders) == 0:
+            print("✅ Manager correctly sees no pending deliveries (endpoint restricted)")
+        else:
+            print("❌ Manager should see empty array for pending deliveries")
+
+        # 11. Test delivery workflow
+        print("\n📥 Testing Delivery Workflow...")
+        
+        # Test partial delivery
+        partial_delivery_data = {
+            "items_delivered": [
+                {"name": "حديد تسليح 12مم", "quantity_delivered": 50},
+                {"name": "أسمنت بورتلاندي", "quantity_delivered": 25}
+            ],
+            "delivery_date": datetime.now().isoformat(),
+            "received_by": "محمد المشرف",
+            "notes": "تسليم جزئي - الباقي غداً"
+        }
+        
+        success, partial_response = self.test_deliver_order(
+            self.supervisor_token, order_id, partial_delivery_data, 200
+        )
+        if not success:
+            print("❌ Failed to record partial delivery")
+            return False
+        
+        if partial_response.get('status') == 'partially_delivered':
+            print("✅ Partial delivery recorded correctly")
+        else:
+            print("❌ Partial delivery status not set correctly")
+
+        # Test full delivery of remaining items
+        full_delivery_data = {
+            "items_delivered": [
+                {"name": "حديد تسليح 12مم", "quantity_delivered": 50},
+                {"name": "أسمنت بورتلاندي", "quantity_delivered": 25},
+                {"name": "رمل ناعم", "quantity_delivered": 20}
+            ],
+            "delivery_date": datetime.now().isoformat(),
+            "received_by": "محمد المشرف",
+            "notes": "تسليم كامل"
+        }
+        
+        success, full_response = self.test_deliver_order(
+            self.supervisor_token, order_id, full_delivery_data, 200
+        )
+        if not success:
+            print("❌ Failed to record full delivery")
+            return False
+        
+        if full_response.get('status') == 'delivered':
+            print("✅ Full delivery recorded correctly")
+        else:
+            print("❌ Full delivery status not set correctly")
+
+        # 12. Test delivery records API
+        print("\n📋 Testing Delivery Records API...")
+        success, delivery_records = self.test_get_delivery_records(self.supervisor_token, order_id)
+        if not success:
+            print("❌ Failed to get delivery records")
+            return False
+        
+        print(f"   Found {len(delivery_records)} delivery records")
+
+        # 13. Test edge cases
+        print("\n⚠️ Testing Edge Cases...")
+        
+        # Test delivery with invalid order_id
+        invalid_delivery_data = {
+            "items_delivered": [{"name": "test", "quantity_delivered": 1}],
+            "delivery_date": datetime.now().isoformat(),
+            "received_by": "Test User"
+        }
+        
+        if self.test_deliver_order(self.supervisor_token, "invalid-id", invalid_delivery_data, 404):
+            print("✅ Correctly handled invalid order_id")
+        else:
+            print("❌ Should have failed with invalid order_id")
+
+        # Test delivery with 0 quantity
+        zero_delivery_data = {
+            "items_delivered": [{"name": "حديد تسليح 12مم", "quantity_delivered": 0}],
+            "delivery_date": datetime.now().isoformat(),
+            "received_by": "Test User"
+        }
+        
+        # Create another order for this test
+        success, test_order_id = self.test_create_purchase_order_with_selected_items(
+            self.manager_token, request_id, [0]
+        )
+        if success and test_order_id:
+            self.test_approve_purchase_order(self.manager_token, test_order_id)
+            self.test_print_purchase_order(self.printer_token, test_order_id)
+            self.test_ship_order(self.manager_token, test_order_id, 200)
+            
+            # This should work as the API doesn't explicitly prevent 0 quantity
+            success, _ = self.test_deliver_order(self.supervisor_token, test_order_id, zero_delivery_data, 200)
+            if success:
+                print("✅ Zero quantity delivery handled (API allows this)")
+            else:
+                print("❌ Zero quantity delivery failed unexpectedly")
+
+        print("\n🎉 Delivery tracking test completed!")
+        return True
+
 def main():
     print("🚀 Starting Arabic RTL Material Request Management System API Tests")
     print("=" * 70)
