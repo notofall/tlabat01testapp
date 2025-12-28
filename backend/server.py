@@ -537,6 +537,196 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
     return [UserResponse(**u) for u in users]
 
+# ==================== PROJECTS ROUTES ====================
+
+@api_router.post("/projects")
+async def create_project(
+    project_data: ProjectCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """إنشاء مشروع جديد - المشرف فقط"""
+    if current_user["role"] != UserRole.SITE_SUPERVISOR:
+        raise HTTPException(status_code=403, detail="فقط المشرف يمكنه إنشاء المشاريع")
+    
+    project_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    project_doc = {
+        "id": project_id,
+        "name": project_data.name,
+        "owner_name": project_data.owner_name,
+        "description": project_data.description,
+        "location": project_data.location,
+        "status": "active",
+        "created_by": current_user["id"],
+        "created_by_name": current_user["name"],
+        "created_at": now
+    }
+    
+    await db.projects.insert_one(project_doc)
+    
+    # Log audit
+    await log_audit(
+        entity_type="project",
+        entity_id=project_id,
+        action="create",
+        user=current_user,
+        description=f"إنشاء مشروع جديد: {project_data.name}"
+    )
+    
+    return {
+        **{k: v for k, v in project_doc.items() if k != "_id"},
+        "total_requests": 0,
+        "total_orders": 0,
+        "total_budget": 0,
+        "total_spent": 0
+    }
+
+@api_router.get("/projects")
+async def get_projects(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على قائمة المشاريع"""
+    query = {}
+    if status:
+        query["status"] = status
+    
+    projects = await db.projects.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    
+    # Calculate stats for each project
+    result = []
+    for p in projects:
+        # Get request count
+        request_count = await db.material_requests.count_documents({"project_id": p["id"]})
+        
+        # Get order count and total spent
+        pipeline = [
+            {"$match": {"project_id": p["id"]}},
+            {"$group": {"_id": None, "count": {"$sum": 1}, "total": {"$sum": "$total_amount"}}}
+        ]
+        order_stats = await db.purchase_orders.aggregate(pipeline).to_list(1)
+        order_count = order_stats[0]["count"] if order_stats else 0
+        total_spent = order_stats[0]["total"] if order_stats else 0
+        
+        # Get total budget from categories
+        budget_pipeline = [
+            {"$match": {"project_id": p["id"]}},
+            {"$group": {"_id": None, "total": {"$sum": "$estimated_budget"}}}
+        ]
+        budget_stats = await db.budget_categories.aggregate(budget_pipeline).to_list(1)
+        total_budget = budget_stats[0]["total"] if budget_stats else 0
+        
+        result.append({
+            **p,
+            "total_requests": request_count,
+            "total_orders": order_count,
+            "total_budget": total_budget,
+            "total_spent": total_spent
+        })
+    
+    return result
+
+@api_router.get("/projects/{project_id}")
+async def get_project(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على تفاصيل مشروع"""
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    
+    # Get stats
+    request_count = await db.material_requests.count_documents({"project_id": project_id})
+    
+    pipeline = [
+        {"$match": {"project_id": project_id}},
+        {"$group": {"_id": None, "count": {"$sum": 1}, "total": {"$sum": "$total_amount"}}}
+    ]
+    order_stats = await db.purchase_orders.aggregate(pipeline).to_list(1)
+    
+    budget_pipeline = [
+        {"$match": {"project_id": project_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$estimated_budget"}}}
+    ]
+    budget_stats = await db.budget_categories.aggregate(budget_pipeline).to_list(1)
+    
+    return {
+        **project,
+        "total_requests": request_count,
+        "total_orders": order_stats[0]["count"] if order_stats else 0,
+        "total_budget": budget_stats[0]["total"] if budget_stats else 0,
+        "total_spent": order_stats[0]["total"] if order_stats else 0
+    }
+
+@api_router.put("/projects/{project_id}")
+async def update_project(
+    project_id: str,
+    update_data: ProjectUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث مشروع - المشرف فقط"""
+    if current_user["role"] != UserRole.SITE_SUPERVISOR:
+        raise HTTPException(status_code=403, detail="فقط المشرف يمكنه تعديل المشاريع")
+    
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    
+    update_fields = {}
+    changes = {}
+    
+    for field in ["name", "owner_name", "description", "location", "status"]:
+        new_value = getattr(update_data, field)
+        if new_value is not None and project.get(field) != new_value:
+            changes[field] = {"old": project.get(field), "new": new_value}
+            update_fields[field] = new_value
+    
+    if update_fields:
+        await db.projects.update_one({"id": project_id}, {"$set": update_fields})
+        
+        await log_audit(
+            entity_type="project",
+            entity_id=project_id,
+            action="update",
+            user=current_user,
+            description=f"تحديث المشروع: {project['name']}",
+            changes=changes
+        )
+    
+    return {"message": "تم تحديث المشروع بنجاح"}
+
+@api_router.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف مشروع - المشرف فقط"""
+    if current_user["role"] != UserRole.SITE_SUPERVISOR:
+        raise HTTPException(status_code=403, detail="فقط المشرف يمكنه حذف المشاريع")
+    
+    # Check if project has requests
+    request_count = await db.material_requests.count_documents({"project_id": project_id})
+    if request_count > 0:
+        raise HTTPException(status_code=400, detail=f"لا يمكن حذف المشروع لوجود {request_count} طلبات مرتبطة به")
+    
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    
+    await db.projects.delete_one({"id": project_id})
+    
+    await log_audit(
+        entity_type="project",
+        entity_id=project_id,
+        action="delete",
+        user=current_user,
+        description=f"حذف المشروع: {project['name']}"
+    )
+    
+    return {"message": "تم حذف المشروع بنجاح"}
+
 # ==================== BUDGET CATEGORIES ROUTES ====================
 
 @api_router.post("/budget-categories")
