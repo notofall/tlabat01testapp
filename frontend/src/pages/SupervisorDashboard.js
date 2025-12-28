@@ -60,16 +60,12 @@ const SupervisorDashboard = () => {
         axios.get(`${API_URL}/requests`, getAuthHeaders()),
         axios.get(`${API_URL}/users/engineers`, getAuthHeaders()),
         axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
-        axios.get(`${API_URL}/purchase-orders`, getAuthHeaders()),
+        axios.get(`${API_URL}/purchase-orders/pending-delivery`, getAuthHeaders()),
       ]);
       setRequests(requestsRes.data);
       setEngineers(engineersRes.data);
       setStats(statsRes.data);
-      // Filter orders that need delivery (shipped or partially_delivered)
-      const deliveries = ordersRes.data.filter(o => 
-        o.status === 'shipped' || o.status === 'partially_delivered'
-      );
-      setPendingDeliveries(deliveries);
+      setPendingDeliveries(ordersRes.data || []);
     } catch (error) {
       toast.error("فشل في تحميل البيانات");
     } finally {
