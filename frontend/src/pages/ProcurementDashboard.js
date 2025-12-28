@@ -730,78 +730,73 @@ const ProcurementDashboard = () => {
           </Card>
         </div>
 
-        {/* Pending Approval Orders */}
+        {/* Pending Approval Orders - only show if there are any */}
         {pendingApprovalOrders.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-lg font-bold flex items-center gap-2 mb-3">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
-              أوامر بانتظار الاعتماد
-              <Badge className="bg-orange-500 text-white">{pendingApprovalOrders.length}</Badge>
-            </h2>
-            <Card className="shadow-sm">
-              <CardContent className="p-0">
-                <div className="sm:hidden divide-y">
-                  {pendingApprovalOrders.map((order) => (
-                    <div key={order.id} className="p-3 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-sm">{getItemsSummary(order.items)}</p>
-                          <p className="text-xs text-slate-500">{order.supplier_name}</p>
-                        </div>
-                        {getOrderStatusBadge(order.status)}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
-                        <Button size="sm" className="bg-green-600 h-7 text-xs px-2" onClick={() => handleApproveOrder(order.id)}>
-                          <Check className="w-3 h-3 ml-1" />اعتماد
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden sm:block overflow-x-auto">
-                  <Table>
-                    <TableHeader><TableRow className="bg-orange-50">
-                      <TableHead className="text-right">الأصناف</TableHead>
-                      <TableHead className="text-right">المشروع</TableHead>
-                      <TableHead className="text-right">المورد</TableHead>
-                      <TableHead className="text-right">التاريخ</TableHead>
-                      <TableHead className="text-right">الإجراء</TableHead>
-                    </TableRow></TableHeader>
-                    <TableBody>
-                      {pendingApprovalOrders.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell className="font-medium">{getItemsSummary(order.items)}</TableCell>
-                          <TableCell>{order.project_name}</TableCell>
-                          <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
-                          <TableCell className="text-sm text-slate-500">{formatDate(order.created_at)}</TableCell>
-                          <TableCell>
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApproveOrder(order.id)}>
-                              <Check className="w-4 h-4 ml-1" />اعتماد
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-orange-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                يوجد {pendingApprovalOrders.length} أمر بانتظار الاعتماد
+              </p>
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7" onClick={() => pendingApprovalOrders.forEach(o => handleApproveOrder(o.id))}>
+                <Check className="w-3 h-3 ml-1" />اعتماد الكل
+              </Button>
+            </div>
           </div>
         )}
 
-        {/* Purchase Orders with Filter */}
+        {/* Purchase Orders - Improved UI */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <Truck className="w-5 h-5 text-green-600" />أوامر الشراء
             </h2>
+            {/* Filter Buttons for Orders */}
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => setReportDialogOpen(true)} className="h-8 text-xs">
-                <FileText className="w-3 h-3 ml-1" />تقرير بتاريخ
+              <Button 
+                size="sm" 
+                variant={ordersViewMode === "all" ? "default" : "outline"}
+                onClick={() => setOrdersViewMode("all")}
+                className={`h-8 text-xs ${ordersViewMode === "all" ? "bg-slate-800" : ""}`}
+              >
+                الكل
+                <Badge className="mr-1 bg-slate-600 text-white text-xs">{filteredOrders.length}</Badge>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => exportPurchaseOrdersTableToPDF(approvedOrders)} disabled={!approvedOrders.length} className="h-8 text-xs">
-                <Download className="w-3 h-3 ml-1" />تصدير
+              <Button 
+                size="sm" 
+                variant={ordersViewMode === "approved" ? "default" : "outline"}
+                onClick={() => setOrdersViewMode("approved")}
+                className={`h-8 text-xs ${ordersViewMode === "approved" ? "bg-green-600" : "text-green-700 border-green-300"}`}
+              >
+                معتمدة
+                <Badge className="mr-1 bg-green-500 text-white text-xs">
+                  {filteredOrders.filter(o => ["approved", "printed"].includes(o.status)).length}
+                </Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={ordersViewMode === "shipped" ? "default" : "outline"}
+                onClick={() => setOrdersViewMode("shipped")}
+                className={`h-8 text-xs ${ordersViewMode === "shipped" ? "bg-blue-600" : "text-blue-700 border-blue-300"}`}
+              >
+                تم الشحن
+                <Badge className="mr-1 bg-blue-500 text-white text-xs">
+                  {filteredOrders.filter(o => ["shipped", "partially_delivered"].includes(o.status)).length}
+                </Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={ordersViewMode === "delivered" ? "default" : "outline"}
+                onClick={() => setOrdersViewMode("delivered")}
+                className={`h-8 text-xs ${ordersViewMode === "delivered" ? "bg-emerald-600" : "text-emerald-700 border-emerald-300"}`}
+              >
+                تم التسليم
+                <Badge className="mr-1 bg-emerald-500 text-white text-xs">
+                  {filteredOrders.filter(o => o.status === "delivered").length}
+                </Badge>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => exportPurchaseOrdersTableToPDF(filteredOrders)} disabled={!filteredOrders.length} className="h-8 w-8 p-0">
+                <Download className="w-3 h-3" />
               </Button>
             </div>
           </div>
