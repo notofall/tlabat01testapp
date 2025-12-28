@@ -252,6 +252,9 @@ class PurchaseOrderResponse(BaseModel):
     shipped_at: Optional[str] = None
     delivered_at: Optional[str] = None
     delivery_notes: Optional[str] = None
+    supplier_receipt_number: Optional[str] = None  # رقم استلام المورد
+    received_by_id: Optional[str] = None  # معرف المستلم (متابع التوريد)
+    received_by_name: Optional[str] = None  # اسم المستلم
 
 # Delivery Record Model
 class DeliveryRecord(BaseModel):
