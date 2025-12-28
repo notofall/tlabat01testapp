@@ -1683,6 +1683,9 @@ async def get_pending_delivery_orders(current_user: dict = Depends(get_current_u
         o.setdefault("shipped_at", None)
         o.setdefault("delivered_at", None)
         o.setdefault("delivery_notes", None)
+        o.setdefault("supplier_receipt_number", None)
+        o.setdefault("received_by_id", None)
+        o.setdefault("received_by_name", None)
         result.append(PurchaseOrderResponse(**o))
     
     return result
