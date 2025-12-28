@@ -334,6 +334,192 @@ class MaterialRequestAPITester:
         )
         return success, response if success else []
 
+    # ==================== PASSWORD MANAGEMENT TESTS ====================
+
+    def test_change_password(self, token, current_password, new_password, expected_status=200, test_name="Change Password"):
+        """Test changing password"""
+        headers = {'Authorization': f'Bearer {token}'}
+        password_data = {
+            "current_password": current_password,
+            "new_password": new_password
+        }
+        
+        success, response = self.run_test(
+            test_name,
+            "POST",
+            "auth/change-password",
+            expected_status,
+            data=password_data,
+            headers=headers
+        )
+        return success, response if success else {}
+
+    def test_forgot_password(self, email, expected_status=200, test_name="Forgot Password"):
+        """Test forgot password functionality"""
+        forgot_data = {"email": email}
+        
+        success, response = self.run_test(
+            test_name,
+            "POST",
+            "auth/forgot-password",
+            expected_status,
+            data=forgot_data
+        )
+        return success, response if success else {}
+
+    def run_password_management_test(self):
+        """Test password management features: change password and forgot password"""
+        print("\n🔐 Starting Password Management Test...")
+        
+        # 1. Health check
+        if not self.test_health_check():
+            print("❌ Health check failed, stopping tests")
+            return False
+
+        # 2. Login supervisor to test change password
+        print("\n📝 Testing Authentication for Password Management...")
+        self.supervisor_token = self.test_login("supervisor1@test.com", "123456", "Supervisor")
+        
+        if not self.supervisor_token:
+            print("❌ Authentication failed for supervisor")
+            return False
+
+        # 3. Test Change Password - Valid Current Password
+        print("\n🔄 Testing Change Password with Valid Current Password...")
+        success, response = self.test_change_password(
+            self.supervisor_token, 
+            "123456", 
+            "newpass123", 
+            200, 
+            "Change Password - Valid Current Password"
+        )
+        if not success:
+            print("❌ Failed to change password with valid current password")
+            return False
+
+        # 4. Test login with new password
+        print("\n🔑 Testing Login with New Password...")
+        new_token = self.test_login("supervisor1@test.com", "newpass123", "Supervisor (New Password)")
+        if not new_token:
+            print("❌ Failed to login with new password")
+            return False
+
+        # 5. Test Change Password - Wrong Current Password
+        print("\n❌ Testing Change Password with Wrong Current Password...")
+        success, response = self.test_change_password(
+            new_token, 
+            "wrongpassword", 
+            "anotherpass", 
+            400, 
+            "Change Password - Wrong Current Password"
+        )
+        if success:
+            # Check if the error message is correct
+            try:
+                if "كلمة المرور الحالية غير صحيحة" in str(response):
+                    print("✅ Correct error message for wrong current password")
+                else:
+                    print("⚠️ Wrong current password rejected but error message may be different")
+            except:
+                print("✅ Wrong current password correctly rejected")
+        else:
+            print("❌ Should have rejected wrong current password")
+
+        # 6. Test Change Password - Short New Password
+        print("\n📏 Testing Change Password with Short New Password...")
+        success, response = self.test_change_password(
+            new_token, 
+            "newpass123", 
+            "123", 
+            400, 
+            "Change Password - Short New Password"
+        )
+        if success:
+            # Check if the error message is correct
+            try:
+                if "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل" in str(response):
+                    print("✅ Correct error message for short password")
+                else:
+                    print("⚠️ Short password rejected but error message may be different")
+            except:
+                print("✅ Short password correctly rejected")
+        else:
+            print("❌ Should have rejected short new password")
+
+        # 7. Restore original password for future tests
+        print("\n🔄 Restoring Original Password...")
+        success, response = self.test_change_password(
+            new_token, 
+            "newpass123", 
+            "123456", 
+            200, 
+            "Restore Original Password"
+        )
+        if not success:
+            print("❌ Failed to restore original password")
+            return False
+
+        # 8. Test Forgot Password - Existing Email
+        print("\n📧 Testing Forgot Password with Existing Email...")
+        success, response = self.test_forgot_password(
+            "supervisor1@test.com", 
+            200, 
+            "Forgot Password - Existing Email"
+        )
+        if not success:
+            print("❌ Failed forgot password with existing email")
+            return False
+
+        # Check if temp_password is returned
+        temp_password = None
+        if isinstance(response, dict) and 'temp_password' in response:
+            temp_password = response['temp_password']
+            print(f"✅ Temporary password received: {temp_password}")
+        else:
+            print("⚠️ No temporary password in response (email might be configured)")
+
+        # 9. Test login with temporary password if available
+        if temp_password:
+            print("\n🔑 Testing Login with Temporary Password...")
+            temp_token = self.test_login("supervisor1@test.com", temp_password, "Supervisor (Temp Password)")
+            if temp_token:
+                print("✅ Successfully logged in with temporary password")
+                
+                # Restore original password
+                print("\n🔄 Restoring Original Password after Temp Login...")
+                self.test_change_password(
+                    temp_token, 
+                    temp_password, 
+                    "123456", 
+                    200, 
+                    "Restore Password after Temp Login"
+                )
+            else:
+                print("❌ Failed to login with temporary password")
+
+        # 10. Test Forgot Password - Non-existing Email
+        print("\n📧 Testing Forgot Password with Non-existing Email...")
+        success, response = self.test_forgot_password(
+            "nonexistent@test.com", 
+            200, 
+            "Forgot Password - Non-existing Email"
+        )
+        if success:
+            print("✅ Forgot password with non-existing email handled correctly (returns success for security)")
+        else:
+            print("❌ Should return success even for non-existing email")
+
+        # 11. Test engineer login to ensure other accounts work
+        print("\n👷 Testing Engineer Login (Verify Other Accounts)...")
+        engineer_token = self.test_login("engineer1@test.com", "123456", "Engineer (Verification)")
+        if engineer_token:
+            print("✅ Engineer login working correctly")
+        else:
+            print("❌ Engineer login failed")
+
+        print("\n🎉 Password management test completed!")
+        return True
+
     def run_new_features_test(self):
         """Test new features: Multiple POs, Approval Workflow, Printer Role"""
         print("\n🆕 Starting New Features Test...")
