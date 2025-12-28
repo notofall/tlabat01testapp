@@ -862,7 +862,6 @@ const ProcurementDashboard = () => {
                     </div>
                   );
                 }
-                }
                 
                 return (
                   <>
