@@ -247,7 +247,7 @@ class DeliveryRecord(BaseModel):
 # Budget Category Models - تصنيفات الميزانية
 class BudgetCategoryCreate(BaseModel):
     name: str  # اسم التصنيف (سباكة، كهرباء، رخام...)
-    project_name: str  # اسم المشروع
+    project_id: str  # معرف المشروع
     estimated_budget: float  # الميزانية التقديرية
 
 class BudgetCategoryUpdate(BaseModel):
