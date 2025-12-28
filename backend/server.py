@@ -294,6 +294,15 @@ class DeliveryRecord(BaseModel):
     received_by: str  # اسم المستلم
     notes: Optional[str] = None
 
+# Default Budget Category Models - التصنيفات الافتراضية (العامة)
+class DefaultBudgetCategoryCreate(BaseModel):
+    name: str  # اسم التصنيف (سباكة، كهرباء، رخام...)
+    default_budget: float = 0  # الميزانية الافتراضية (اختياري)
+
+class DefaultBudgetCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    default_budget: Optional[float] = None
+
 # Budget Category Models - تصنيفات الميزانية
 class BudgetCategoryCreate(BaseModel):
     name: str  # اسم التصنيف (سباكة، كهرباء، رخام...)
