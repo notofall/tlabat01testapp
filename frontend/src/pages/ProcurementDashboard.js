@@ -55,6 +55,15 @@ const ProcurementDashboard = () => {
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
 
+  // Budget Categories states
+  const [budgetCategories, setBudgetCategories] = useState([]);
+  const [budgetReport, setBudgetReport] = useState(null);
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+  const [budgetReportDialogOpen, setBudgetReportDialogOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState({ name: "", project_name: "", estimated_budget: "" });
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");  // For PO creation
+
   const fetchData = async () => {
     try {
       const [requestsRes, ordersRes, statsRes, suppliersRes] = await Promise.all([
