@@ -349,6 +349,8 @@ test_plan:
 
 agent_communication:
   - agent: "main"
+    message: "COMPLETED: Added supervisor_name and engineer_name to Purchase Order details dialog in ProcurementDashboard.js and PrinterDashboard.js. Verified PDF export is working correctly - HTML content is being generated with full Arabic text (6362 chars), contains 'أمر شراء', 'المشرف', 'المهندس'. Screenshot analysis confirms PDF preview shows complete Arabic content with supervisor 'محمد المشرف' and engineer 'أحمد المهندس'. Please test the complete workflow including PDF export functionality."
+  - agent: "main"
     message: "Fixed two critical bugs: 1) Cursor focus issue in SupervisorDashboard by moving ItemInput inline 2) PDF export error by using correct jspdf-autotable import syntax. Please verify both fixes work correctly."
   - agent: "main"
     message: "Added new features: 1) Printer role for printing purchase orders after manager approval 2) Procurement manager can create multiple POs for same request with item selection 3) PO approval workflow before printing"
