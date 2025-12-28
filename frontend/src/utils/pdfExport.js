@@ -70,79 +70,82 @@ const printHTML = (html, title) => {
           font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
           direction: rtl;
           text-align: right;
-          padding: 25px;
+          padding: 15px 20px;
           background: white;
           color: #1e293b;
-          font-size: 12px;
-          max-width: 900px;
+          font-size: 11px;
+          max-width: 800px;
           margin: 0 auto;
+          line-height: 1.4;
         }
         @media print {
           body { 
-            padding: 15px; 
-            font-size: 11px;
+            padding: 10px 15px; 
+            font-size: 10px;
           }
           .no-print { display: none !important; }
           @page {
             size: A4;
-            margin: 15mm;
+            margin: 10mm;
           }
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 11px;
-          margin: 15px 0;
+          font-size: 10px;
+          margin: 8px 0;
         }
         th, td {
-          padding: 8px 10px;
-          border: 1px solid #e2e8f0;
+          padding: 5px 8px;
+          border: 1px solid #d1d5db;
         }
         th {
-          background: #ea580c;
+          background: #374151;
           color: white;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 600;
         }
         td {
-          font-size: 11px;
+          font-size: 10px;
         }
         .header {
-          border-bottom: 3px solid #ea580c;
-          padding-bottom: 12px;
-          margin-bottom: 25px;
+          border-bottom: 2px solid #ea580c;
+          padding-bottom: 8px;
+          margin-bottom: 12px;
           text-align: center;
         }
         .title {
           color: #ea580c;
-          font-size: 32px;
+          font-size: 20px;
           font-weight: 700;
-          margin-bottom: 5px;
+          margin-bottom: 2px;
         }
         .subtitle {
           color: #475569;
-          font-size: 14px;
+          font-size: 11px;
         }
         .info-box {
-          background: #f8fafc;
-          padding: 20px;
-          border-radius: 8px;
-          margin-bottom: 25px;
+          background: #f9fafb;
+          padding: 10px 12px;
+          border-radius: 4px;
+          margin-bottom: 12px;
+          border: 1px solid #e5e7eb;
         }
         .info-row {
           display: flex;
-          margin-bottom: 10px;
+          margin-bottom: 4px;
         }
         .info-label {
-          color: #64748b;
+          color: #6b7280;
           font-weight: 600;
-          min-width: 120px;
+          min-width: 90px;
+          font-size: 10px;
         }
         .badge {
           display: inline-block;
-          padding: 3px 10px;
-          border-radius: 4px;
-          font-size: 12px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 9px;
         }
         .badge-green {
           background: #dcfce7;
@@ -153,59 +156,101 @@ const printHTML = (html, title) => {
           color: #1e40af;
         }
         .section-title {
-          color: #ea580c;
-          font-size: 16px;
-          border-bottom: 2px solid #ea580c;
-          padding-bottom: 8px;
-          margin-bottom: 15px;
+          color: #374151;
+          font-size: 12px;
+          font-weight: 700;
+          border-bottom: 1px solid #ea580c;
+          padding-bottom: 4px;
+          margin-bottom: 8px;
         }
         .signature-area {
           display: flex;
           justify-content: space-between;
-          margin-top: 60px;
-          padding: 0 50px;
+          margin-top: 30px;
+          padding: 0 30px;
         }
         .signature-box {
           text-align: center;
           width: 40%;
         }
         .signature-line {
-          border-top: 2px solid #94a3b8;
-          padding-top: 10px;
-          margin-top: 50px;
-          color: #64748b;
-          font-size: 13px;
+          border-top: 1px solid #9ca3af;
+          padding-top: 6px;
+          margin-top: 30px;
+          color: #6b7280;
+          font-size: 10px;
         }
         .footer {
-          border-top: 2px solid #e2e8f0;
-          padding-top: 20px;
-          margin-top: 40px;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 10px;
+          margin-top: 20px;
           text-align: center;
-          color: #64748b;
-          font-size: 11px;
+          color: #9ca3af;
+          font-size: 9px;
         }
         .notes-box {
-          background: #fffbeb;
-          border: 1px solid #fde68a;
-          padding: 15px;
-          border-radius: 8px;
-          margin-bottom: 25px;
+          background: #fefce8;
+          border: 1px solid #fde047;
+          padding: 8px 10px;
+          border-radius: 4px;
+          margin-bottom: 12px;
+          font-size: 10px;
         }
         .print-btn {
           position: fixed;
-          top: 20px;
-          left: 20px;
+          top: 15px;
+          left: 15px;
           background: #ea580c;
           color: white;
           border: none;
-          padding: 10px 20px;
-          border-radius: 8px;
+          padding: 8px 16px;
+          border-radius: 6px;
           cursor: pointer;
           font-family: inherit;
-          font-size: 14px;
+          font-size: 12px;
         }
         .print-btn:hover {
           background: #c2410c;
+        }
+        .compact-header {
+          border: 2px solid #ea580c;
+          border-radius: 6px;
+          padding: 10px 15px;
+          margin-bottom: 12px;
+          text-align: center;
+          background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+        }
+        .compact-header .title {
+          font-size: 18px;
+          margin-bottom: 4px;
+        }
+        .compact-header .order-number {
+          font-size: 12px;
+          font-weight: 700;
+          color: #1f2937;
+        }
+        .compact-header .subtitle {
+          font-size: 10px;
+          color: #6b7280;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4px 15px;
+          font-size: 10px;
+        }
+        .info-grid .info-item {
+          display: flex;
+          align-items: center;
+          padding: 3px 0;
+        }
+        .info-grid .info-label {
+          color: #6b7280;
+          min-width: 85px;
+        }
+        .info-grid .info-value {
+          color: #1f2937;
+          font-weight: 500;
         }
       </style>
     </head>
