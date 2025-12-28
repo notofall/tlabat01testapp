@@ -103,8 +103,11 @@ const ProcurementDashboard = () => {
       return;
     }
 
-    exportPurchaseOrdersTableToPDF(reportOrders);
-    toast.success(`تم تصدير تقرير بـ ${reportOrders.length} أمر شراء`);
+    exportPurchaseOrdersTableToPDF(reportOrders).then(() => {
+      toast.success(`تم تصدير تقرير بـ ${reportOrders.length} أمر شراء`);
+    }).catch(() => {
+      toast.error("فشل في تصدير التقرير");
+    });
     setReportDialogOpen(false);
   };
 
