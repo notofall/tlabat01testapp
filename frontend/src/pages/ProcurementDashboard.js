@@ -31,7 +31,10 @@ import {
   FileText,
   ShoppingCart,
   Truck,
+  Eye,
+  Download,
 } from "lucide-react";
+import { exportRequestToPDF, exportPurchaseOrderToPDF, exportRequestsTableToPDF, exportPurchaseOrdersTableToPDF } from "../utils/pdfExport";
 
 const ProcurementDashboard = () => {
   const { user, logout, getAuthHeaders, API_URL } = useAuth();
@@ -40,7 +43,10 @@ const ProcurementDashboard = () => {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [viewRequestDialogOpen, setViewRequestDialogOpen] = useState(false);
+  const [viewOrderDialogOpen, setViewOrderDialogOpen] = useState(false);
   const [supplierName, setSupplierName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +102,16 @@ const ProcurementDashboard = () => {
     }
   };
 
+  const openViewRequestDialog = (request) => {
+    setSelectedRequest(request);
+    setViewRequestDialogOpen(true);
+  };
+
+  const openViewOrderDialog = (order) => {
+    setSelectedOrder(order);
+    setViewOrderDialogOpen(true);
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("ar-SA", {
       year: "numeric",
@@ -104,6 +120,31 @@ const ProcurementDashboard = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      pending_engineer: { label: "بانتظار المهندس", variant: "warning" },
+      approved_by_engineer: { label: "معتمد من المهندس", variant: "success" },
+      rejected_by_engineer: { label: "مرفوض", variant: "destructive" },
+      purchase_order_issued: { label: "تم إصدار أمر الشراء", variant: "default" },
+    };
+
+    const statusInfo = statusMap[status] || { label: status, variant: "secondary" };
+
+    const variantClasses = {
+      warning: "bg-yellow-50 text-yellow-800 border-yellow-200",
+      success: "bg-green-50 text-green-800 border-green-200",
+      destructive: "bg-red-50 text-red-800 border-red-200",
+      default: "bg-blue-50 text-blue-800 border-blue-200",
+      secondary: "bg-slate-50 text-slate-800 border-slate-200",
+    };
+
+    return (
+      <Badge className={`${variantClasses[statusInfo.variant]} border font-medium`}>
+        {statusInfo.label}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -182,15 +223,27 @@ const ProcurementDashboard = () => {
                 </span>
               )}
             </h2>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              className="border-slate-300"
-              data-testid="refresh-btn"
-            >
-              <RefreshCw className="w-4 h-4 ml-2" />
-              تحديث
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => exportRequestsTableToPDF(requests, 'طلبات معتمدة')}
+                className="border-slate-300"
+                disabled={requests.length === 0}
+                data-testid="export-requests-pdf-btn"
+              >
+                <Download className="w-4 h-4 ml-2" />
+                تصدير الطلبات
+              </Button>
+              <Button
+                variant="outline"
+                onClick={fetchData}
+                className="border-slate-300"
+                data-testid="refresh-btn"
+              >
+                <RefreshCw className="w-4 h-4 ml-2" />
+                تحديث
+              </Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -226,18 +279,37 @@ const ProcurementDashboard = () => {
                           {formatDate(request.created_at)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            className="bg-orange-600 hover:bg-orange-700 text-white"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setOrderDialogOpen(true);
-                            }}
-                            data-testid={`create-order-btn-${request.id}`}
-                          >
-                            <ShoppingCart className="w-4 h-4 ml-1" />
-                            إصدار أمر شراء
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openViewRequestDialog(request)}
+                              className="h-8 w-8 p-0"
+                              data-testid={`view-request-btn-${request.id}`}
+                            >
+                              <Eye className="w-4 h-4 text-slate-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => exportRequestToPDF(request)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Download className="w-4 h-4 text-green-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-orange-600 hover:bg-orange-700 text-white"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setOrderDialogOpen(true);
+                              }}
+                              data-testid={`create-order-btn-${request.id}`}
+                            >
+                              <ShoppingCart className="w-4 h-4 ml-1" />
+                              إصدار أمر
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -250,10 +322,22 @@ const ProcurementDashboard = () => {
 
         {/* Purchase Orders */}
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <Truck className="w-6 h-6 text-green-600" />
-            أوامر الشراء المصدرة
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Truck className="w-6 h-6 text-green-600" />
+              أوامر الشراء المصدرة
+            </h2>
+            <Button
+              variant="outline"
+              onClick={() => exportPurchaseOrdersTableToPDF(orders)}
+              className="border-slate-300"
+              disabled={orders.length === 0}
+              data-testid="export-orders-pdf-btn"
+            >
+              <Download className="w-4 h-4 ml-2" />
+              تصدير الأوامر
+            </Button>
+          </div>
           <Card className="shadow-sm">
             <CardContent className="p-0">
               {orders.length === 0 ? (
@@ -271,6 +355,7 @@ const ProcurementDashboard = () => {
                       <TableHead className="text-right font-bold">المورد</TableHead>
                       <TableHead className="text-right font-bold">ملاحظات</TableHead>
                       <TableHead className="text-right font-bold">تاريخ الإصدار</TableHead>
+                      <TableHead className="text-right font-bold">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -290,6 +375,28 @@ const ProcurementDashboard = () => {
                         <TableCell className="text-slate-500 text-sm">
                           {formatDate(order.created_at)}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openViewOrderDialog(order)}
+                              className="h-8 w-8 p-0"
+                              data-testid={`view-order-btn-${order.id}`}
+                            >
+                              <Eye className="w-4 h-4 text-slate-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => exportPurchaseOrderToPDF(order)}
+                              className="h-8 w-8 p-0"
+                              data-testid={`export-order-btn-${order.id}`}
+                            >
+                              <Download className="w-4 h-4 text-green-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -299,6 +406,118 @@ const ProcurementDashboard = () => {
           </Card>
         </div>
       </main>
+
+      {/* View Request Dialog */}
+      <Dialog open={viewRequestDialogOpen} onOpenChange={setViewRequestDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">تفاصيل الطلب</DialogTitle>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-4 mt-4">
+              <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">اسم المادة:</span>
+                  <span className="font-semibold">{selectedRequest.material_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الكمية:</span>
+                  <span className="font-semibold">{selectedRequest.quantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المشروع:</span>
+                  <span className="font-semibold">{selectedRequest.project_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المشرف:</span>
+                  <span className="font-semibold">{selectedRequest.supervisor_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المهندس المعتمد:</span>
+                  <span className="font-semibold">{selectedRequest.engineer_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الحالة:</span>
+                  {getStatusBadge(selectedRequest.status)}
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">التاريخ:</span>
+                  <span className="font-semibold">{formatDate(selectedRequest.created_at)}</span>
+                </div>
+                <div className="pt-2 border-t">
+                  <span className="text-slate-500 block mb-1">سبب الطلب:</span>
+                  <p className="font-medium">{selectedRequest.reason}</p>
+                </div>
+              </div>
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => exportRequestToPDF(selectedRequest)}
+              >
+                <Download className="w-4 h-4 ml-2" />
+                تصدير PDF
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Order Dialog */}
+      <Dialog open={viewOrderDialogOpen} onOpenChange={setViewOrderDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">تفاصيل أمر الشراء</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4 mt-4">
+              <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                <div className="text-center pb-3 border-b">
+                  <span className="text-sm text-slate-500">رقم الأمر</span>
+                  <p className="text-lg font-bold text-orange-600">{selectedOrder.id.slice(0, 8).toUpperCase()}</p>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">اسم المادة:</span>
+                  <span className="font-semibold">{selectedOrder.material_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الكمية:</span>
+                  <span className="font-semibold">{selectedOrder.quantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المشروع:</span>
+                  <span className="font-semibold">{selectedOrder.project_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">المورد:</span>
+                  <Badge className="bg-green-50 text-green-800 border-green-200 border">
+                    {selectedOrder.supplier_name}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">مدير المشتريات:</span>
+                  <span className="font-semibold">{selectedOrder.manager_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">تاريخ الإصدار:</span>
+                  <span className="font-semibold">{formatDate(selectedOrder.created_at)}</span>
+                </div>
+                {selectedOrder.notes && (
+                  <div className="pt-2 border-t">
+                    <span className="text-slate-500 block mb-1">ملاحظات:</span>
+                    <p className="font-medium">{selectedOrder.notes}</p>
+                  </div>
+                )}
+              </div>
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => exportPurchaseOrderToPDF(selectedOrder)}
+              >
+                <Download className="w-4 h-4 ml-2" />
+                تصدير أمر الشراء PDF
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Purchase Order Dialog */}
       <Dialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen}>
