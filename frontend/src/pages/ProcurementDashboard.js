@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-import { Package, LogOut, Clock, CheckCircle, RefreshCw, FileText, ShoppingCart, Truck, Eye, Download, Calendar, Filter, Check, AlertCircle } from "lucide-react";
+import { Package, LogOut, Clock, CheckCircle, RefreshCw, FileText, ShoppingCart, Truck, Eye, Download, Calendar, Filter, Check, AlertCircle, Plus, Users, X, Edit } from "lucide-react";
 import { exportRequestToPDF, exportPurchaseOrderToPDF, exportRequestsTableToPDF, exportPurchaseOrdersTableToPDF } from "../utils/pdfExport";
 
 const ProcurementDashboard = () => {
@@ -19,6 +19,7 @@ const ProcurementDashboard = () => {
   const [requests, setRequests] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -27,10 +28,22 @@ const ProcurementDashboard = () => {
   const [viewRequestDialogOpen, setViewRequestDialogOpen] = useState(false);
   const [viewOrderDialogOpen, setViewOrderDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const [suppliersListDialogOpen, setSuppliersListDialogOpen] = useState(false);
+  
+  // Supplier selection
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [supplierName, setSupplierName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
+  const [termsConditions, setTermsConditions] = useState("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
   const [selectedItemIndices, setSelectedItemIndices] = useState([]);
+  const [itemPrices, setItemPrices] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  
+  // New supplier form
+  const [newSupplier, setNewSupplier] = useState({ name: "", contact_person: "", phone: "", email: "", address: "", notes: "" });
+  const [editingSupplier, setEditingSupplier] = useState(null);
   
   // Filter states
   const [filterStartDate, setFilterStartDate] = useState("");
@@ -44,15 +57,17 @@ const ProcurementDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [requestsRes, ordersRes, statsRes] = await Promise.all([
+      const [requestsRes, ordersRes, statsRes, suppliersRes] = await Promise.all([
         axios.get(`${API_URL}/requests`, getAuthHeaders()),
         axios.get(`${API_URL}/purchase-orders`, getAuthHeaders()),
         axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
+        axios.get(`${API_URL}/suppliers`, getAuthHeaders()),
       ]);
       setRequests(requestsRes.data);
       setAllOrders(ordersRes.data);
       setFilteredOrders(ordersRes.data);
       setStats(statsRes.data);
+      setSuppliers(suppliersRes.data);
     } catch (error) {
       toast.error("فشل في تحميل البيانات");
     } finally {
