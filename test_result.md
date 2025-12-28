@@ -454,7 +454,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Purchase Order Edit Functionality"
+    - "Pagination Feature for Procurement Dashboard"
   stuck_tasks: 
     - "Purchase Order Edit Functionality"
   test_all: false
@@ -462,7 +462,7 @@ test_plan:
 
 agent_communication:
   - agent: "testing"
-    message: "PURCHASE ORDER EDIT FUNCTIONALITY TESTING COMPLETED - CRITICAL ISSUE FOUND: ❌ Edit buttons are MISSING from purchase orders table UI. Backend implementation is complete (edit dialog, price fields, invoice number, supplier dropdown, save functionality) but Edit buttons not rendered in actions column. Tested with manager1@test.com, found 17 purchase orders with 3 action buttons each: Eye (view) ✅, Download ✅, but Edit button ❌ missing. Expected blue pencil icon edit button not visible. This is a critical UI rendering issue preventing users from accessing the edit feature. Main agent needs to investigate why edit buttons are not being displayed in the purchase orders table actions column."
+    message: "PAGINATION TESTING COMPLETED - CRITICAL ISSUE FOUND: ✅ Material Requests Pagination: Fully functional with Previous/Next buttons (السابق/التالي), page indicator (1/3), display count (عرض 1-10 من 22), navigation working correctly between pages, filter integration working (معتمدة/الكل buttons), search integration working, mobile responsive (375x800 viewport tested). ❌ Purchase Orders Pagination: MISSING - Only found single pagination set for requests section. Purchase Orders section (أوامر الشراء) exists but lacks separate pagination controls. Expected second pagination set for orders not found. Code analysis shows pagination implementation exists in ProcurementDashboard.js (lines 988-1017) but not rendering in UI. This is a critical issue as Purchase Orders section should have independent pagination controls as specified in requirements. Main agent needs to investigate why Purchase Orders pagination is not displaying despite being implemented in code."
   - agent: "main"
     message: "COMPLETED: Added supervisor_name and engineer_name to Purchase Order details dialog in ProcurementDashboard.js and PrinterDashboard.js. Verified PDF export is working correctly - HTML content is being generated with full Arabic text (6362 chars), contains 'أمر شراء', 'المشرف', 'المهندس'. Screenshot analysis confirms PDF preview shows complete Arabic content with supervisor 'محمد المشرف' and engineer 'أحمد المهندس'. Please test the complete workflow including PDF export functionality."
   - agent: "main"
