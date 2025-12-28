@@ -67,6 +67,10 @@ async def create_indexes():
         await db.budget_categories.create_index("project_id")
         await db.budget_categories.create_index("created_by")
         
+        # Default budget categories indexes (global templates)
+        await db.default_budget_categories.create_index("id", unique=True)
+        await db.default_budget_categories.create_index("created_by")
+        
         # Projects indexes
         await db.projects.create_index("id", unique=True)
         await db.projects.create_index("status")
