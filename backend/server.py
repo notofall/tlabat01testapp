@@ -699,7 +699,19 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
         query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED]}
     
     orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [PurchaseOrderResponse(**o) for o in orders]
+    
+    # Handle legacy orders without status field
+    result = []
+    for o in orders:
+        if "status" not in o:
+            o["status"] = PurchaseOrderStatus.APPROVED  # Default to approved for old orders
+        if "approved_at" not in o:
+            o["approved_at"] = None
+        if "printed_at" not in o:
+            o["printed_at"] = None
+        result.append(PurchaseOrderResponse(**o))
+    
+    return result
 
 # Get remaining items for a request (not yet ordered)
 @api_router.get("/requests/{request_id}/remaining-items")
