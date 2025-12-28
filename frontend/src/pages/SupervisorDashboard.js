@@ -29,6 +29,7 @@ const SupervisorDashboard = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [submitting, setSubmitting] = useState(false);
