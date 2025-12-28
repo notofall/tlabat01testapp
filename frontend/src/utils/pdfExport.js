@@ -43,7 +43,10 @@ const getOrderStatusTextAr = (status) => {
   const statusMap = {
     pending_approval: 'بانتظار الاعتماد',
     approved: 'معتمد',
-    printed: 'تمت الطباعة'
+    printed: 'تمت الطباعة',
+    shipped: 'تم الشحن',
+    partially_delivered: 'تسليم جزئي',
+    delivered: 'تم التسليم'
   };
   return statusMap[status] || status;
 };
