@@ -851,7 +851,7 @@ const ProcurementDashboard = () => {
               <Input
                 placeholder="بحث برقم أمر الشراء، رقم الطلب، المشروع، المورد، أو رقم استلام المورد..."
                 value={orderSearchTerm}
-                onChange={(e) => setOrderSearchTerm(e.target.value)}
+                onChange={(e) => { setOrderSearchTerm(e.target.value); setOrdersPage(1); }}
                 className="h-10 pr-10 text-sm"
               />
               <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -860,7 +860,7 @@ const ProcurementDashboard = () => {
                   variant="ghost"
                   size="sm"
                   className="absolute left-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                  onClick={() => setOrderSearchTerm("")}
+                  onClick={() => { setOrderSearchTerm(""); setOrdersPage(1); }}
                 >
                   <X className="w-3 h-3" />
                 </Button>
@@ -872,7 +872,7 @@ const ProcurementDashboard = () => {
             <CardContent className="p-0">
               {(() => {
                 // Filter orders based on view mode AND search term
-                let displayOrders = filteredOrders.filter(order => {
+                let allDisplayOrders = filteredOrders.filter(order => {
                   if (ordersViewMode === "all") return true;
                   if (ordersViewMode === "approved") return ["approved", "printed", "pending_approval"].includes(order.status);
                   if (ordersViewMode === "shipped") return ["shipped", "partially_delivered"].includes(order.status);
@@ -883,7 +883,7 @@ const ProcurementDashboard = () => {
                 // Apply search filter
                 if (orderSearchTerm.trim()) {
                   const term = orderSearchTerm.toLowerCase().trim();
-                  displayOrders = displayOrders.filter(order => 
+                  allDisplayOrders = allDisplayOrders.filter(order => 
                     order.id?.toLowerCase().includes(term) ||
                     order.request_id?.toLowerCase().includes(term) ||
                     order.request_number?.toLowerCase().includes(term) ||
@@ -893,7 +893,12 @@ const ProcurementDashboard = () => {
                   );
                 }
                 
-                if (!displayOrders.length) {
+                // Pagination
+                const totalOrderPages = Math.ceil(allDisplayOrders.length / ORDERS_PER_PAGE);
+                const orderStartIndex = (ordersPage - 1) * ORDERS_PER_PAGE;
+                const displayOrders = allDisplayOrders.slice(orderStartIndex, orderStartIndex + ORDERS_PER_PAGE);
+                
+                if (!allDisplayOrders.length) {
                   return (
                     <div className="text-center py-8">
                       <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
