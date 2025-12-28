@@ -544,6 +544,7 @@ async def create_material_request(
         "engineer_name": engineer["name"],
         "status": RequestStatus.PENDING_ENGINEER,
         "rejection_reason": None,
+        "expected_delivery_date": request_data.expected_delivery_date,
         "created_at": now,
         "updated_at": now
     }
