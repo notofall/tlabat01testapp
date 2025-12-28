@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Package, LogOut, Clock, CheckCircle, RefreshCw, FileText, ShoppingCart, Truck, Eye, Download, Calendar, Filter } from "lucide-react";
+import { Checkbox } from "../components/ui/checkbox";
+import { Package, LogOut, Clock, CheckCircle, RefreshCw, FileText, ShoppingCart, Truck, Eye, Download, Calendar, Filter, Check, AlertCircle } from "lucide-react";
 import { exportRequestToPDF, exportPurchaseOrderToPDF, exportRequestsTableToPDF, exportPurchaseOrdersTableToPDF } from "../utils/pdfExport";
 
 const ProcurementDashboard = () => {
@@ -28,6 +29,7 @@ const ProcurementDashboard = () => {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [supplierName, setSupplierName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
+  const [selectedItemIndices, setSelectedItemIndices] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   
   // Filter states
@@ -106,19 +108,50 @@ const ProcurementDashboard = () => {
     setReportDialogOpen(false);
   };
 
+  const openOrderDialog = (request) => {
+    setSelectedRequest(request);
+    setSupplierName("");
+    setOrderNotes("");
+    // Select all items by default
+    setSelectedItemIndices(request.items.map((_, idx) => idx));
+    setOrderDialogOpen(true);
+  };
+
+  const toggleItemSelection = (idx) => {
+    setSelectedItemIndices(prev => 
+      prev.includes(idx) 
+        ? prev.filter(i => i !== idx)
+        : [...prev, idx]
+    );
+  };
+
+  const selectAllItems = () => {
+    if (selectedRequest) {
+      setSelectedItemIndices(selectedRequest.items.map((_, idx) => idx));
+    }
+  };
+
+  const deselectAllItems = () => {
+    setSelectedItemIndices([]);
+  };
+
   const handleCreateOrder = async () => {
     if (!supplierName.trim()) { toast.error("الرجاء إدخال اسم المورد"); return; }
+    if (selectedItemIndices.length === 0) { toast.error("الرجاء اختيار صنف واحد على الأقل"); return; }
+    
     setSubmitting(true);
     try {
       await axios.post(`${API_URL}/purchase-orders`, { 
         request_id: selectedRequest.id, 
         supplier_name: supplierName, 
+        selected_items: selectedItemIndices,
         notes: orderNotes 
       }, getAuthHeaders());
       toast.success("تم إصدار أمر الشراء بنجاح");
       setOrderDialogOpen(false);
       setSupplierName("");
       setOrderNotes("");
+      setSelectedItemIndices([]);
       setSelectedRequest(null);
       fetchData();
     } catch (error) {
@@ -128,15 +161,36 @@ const ProcurementDashboard = () => {
     }
   };
 
+  const handleApproveOrder = async (orderId) => {
+    try {
+      await axios.put(`${API_URL}/purchase-orders/${orderId}/approve`, {}, getAuthHeaders());
+      toast.success("تم اعتماد أمر الشراء");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "فشل في اعتماد أمر الشراء");
+    }
+  };
+
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const formatDateFull = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
   
   const getItemsSummary = (items) => !items?.length ? "-" : items.length === 1 ? items[0].name : `${items[0].name} +${items.length - 1}`;
 
-  const getStatusBadge = (status) => {
+  const getRequestStatusBadge = (status) => {
     const map = {
       approved_by_engineer: { label: "معتمد", color: "bg-green-100 text-green-800 border-green-300" },
+      partially_ordered: { label: "جاري الإصدار", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
       purchase_order_issued: { label: "تم الإصدار", color: "bg-blue-100 text-blue-800 border-blue-300" },
+    };
+    const info = map[status] || { label: status, color: "bg-slate-100 text-slate-800" };
+    return <Badge className={`${info.color} border text-xs`}>{info.label}</Badge>;
+  };
+
+  const getOrderStatusBadge = (status) => {
+    const map = {
+      pending_approval: { label: "بانتظار الاعتماد", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+      approved: { label: "معتمد", color: "bg-green-100 text-green-800 border-green-300" },
+      printed: { label: "تمت الطباعة", color: "bg-blue-100 text-blue-800 border-blue-300" },
     };
     const info = map[status] || { label: status, color: "bg-slate-100 text-slate-800" };
     return <Badge className={`${info.color} border text-xs`}>{info.label}</Badge>;
@@ -145,6 +199,10 @@ const ProcurementDashboard = () => {
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-10 h-10 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div></div>;
   }
+
+  // Filter orders by status
+  const pendingApprovalOrders = filteredOrders.filter(o => o.status === "pending_approval");
+  const approvedOrders = filteredOrders.filter(o => o.status !== "pending_approval");
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -173,17 +231,29 @@ const ProcurementDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <Card className="border-r-4 border-yellow-500">
             <CardContent className="p-3">
               <p className="text-xs text-slate-500">طلبات معلقة</p>
               <p className="text-2xl font-bold text-yellow-600">{stats.pending_orders || 0}</p>
             </CardContent>
           </Card>
+          <Card className="border-r-4 border-orange-500">
+            <CardContent className="p-3">
+              <p className="text-xs text-slate-500">بانتظار الاعتماد</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.pending_approval || 0}</p>
+            </CardContent>
+          </Card>
           <Card className="border-r-4 border-green-500">
             <CardContent className="p-3">
-              <p className="text-xs text-slate-500">أوامر شراء</p>
-              <p className="text-2xl font-bold text-green-600">{stats.total_orders || 0}</p>
+              <p className="text-xs text-slate-500">أوامر معتمدة</p>
+              <p className="text-2xl font-bold text-green-600">{stats.approved_orders || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-r-4 border-blue-500">
+            <CardContent className="p-3">
+              <p className="text-xs text-slate-500">إجمالي الأوامر</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.total_orders || 0}</p>
             </CardContent>
           </Card>
         </div>
@@ -214,12 +284,13 @@ const ProcurementDashboard = () => {
                             <p className="font-medium text-sm">{getItemsSummary(req.items)}</p>
                             <p className="text-xs text-slate-500">{req.project_name}</p>
                           </div>
+                          {getRequestStatusBadge(req.status)}
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-slate-400">{formatDate(req.created_at)}</span>
                           <div className="flex gap-1">
                             <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
-                            <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => { setSelectedRequest(req); setOrderDialogOpen(true); }}>
+                            <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => openOrderDialog(req)}>
                               <ShoppingCart className="w-3 h-3 ml-1" />إصدار
                             </Button>
                           </div>
@@ -234,6 +305,7 @@ const ProcurementDashboard = () => {
                         <TableHead className="text-right">الأصناف</TableHead>
                         <TableHead className="text-right">المشروع</TableHead>
                         <TableHead className="text-right">المشرف</TableHead>
+                        <TableHead className="text-right">الحالة</TableHead>
                         <TableHead className="text-right">التاريخ</TableHead>
                         <TableHead className="text-right">الإجراء</TableHead>
                       </TableRow></TableHeader>
@@ -243,11 +315,12 @@ const ProcurementDashboard = () => {
                             <TableCell className="font-medium">{getItemsSummary(req.items)}</TableCell>
                             <TableCell>{req.project_name}</TableCell>
                             <TableCell>{req.supervisor_name}</TableCell>
+                            <TableCell>{getRequestStatusBadge(req.status)}</TableCell>
                             <TableCell className="text-sm text-slate-500">{formatDate(req.created_at)}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
                                 <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                                <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => { setSelectedRequest(req); setOrderDialogOpen(true); }}>
+                                <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => openOrderDialog(req)}>
                                   <ShoppingCart className="w-4 h-4 ml-1" />إصدار أمر
                                 </Button>
                               </div>
@@ -263,6 +336,66 @@ const ProcurementDashboard = () => {
           </Card>
         </div>
 
+        {/* Pending Approval Orders */}
+        {pendingApprovalOrders.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-3">
+              <AlertCircle className="w-5 h-5 text-orange-600" />
+              أوامر بانتظار الاعتماد
+              <Badge className="bg-orange-500 text-white">{pendingApprovalOrders.length}</Badge>
+            </h2>
+            <Card className="shadow-sm">
+              <CardContent className="p-0">
+                <div className="sm:hidden divide-y">
+                  {pendingApprovalOrders.map((order) => (
+                    <div key={order.id} className="p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-sm">{getItemsSummary(order.items)}</p>
+                          <p className="text-xs text-slate-500">{order.supplier_name}</p>
+                        </div>
+                        {getOrderStatusBadge(order.status)}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
+                        <Button size="sm" className="bg-green-600 h-7 text-xs px-2" onClick={() => handleApproveOrder(order.id)}>
+                          <Check className="w-3 h-3 ml-1" />اعتماد
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow className="bg-orange-50">
+                      <TableHead className="text-right">الأصناف</TableHead>
+                      <TableHead className="text-right">المشروع</TableHead>
+                      <TableHead className="text-right">المورد</TableHead>
+                      <TableHead className="text-right">التاريخ</TableHead>
+                      <TableHead className="text-right">الإجراء</TableHead>
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {pendingApprovalOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">{getItemsSummary(order.items)}</TableCell>
+                          <TableCell>{order.project_name}</TableCell>
+                          <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
+                          <TableCell className="text-sm text-slate-500">{formatDate(order.created_at)}</TableCell>
+                          <TableCell>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApproveOrder(order.id)}>
+                              <Check className="w-4 h-4 ml-1" />اعتماد
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Purchase Orders with Filter */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
@@ -273,7 +406,7 @@ const ProcurementDashboard = () => {
               <Button variant="outline" size="sm" onClick={() => setReportDialogOpen(true)} className="h-8 text-xs">
                 <FileText className="w-3 h-3 ml-1" />تقرير بتاريخ
               </Button>
-              <Button variant="outline" size="sm" onClick={() => exportPurchaseOrdersTableToPDF(filteredOrders)} disabled={!filteredOrders.length} className="h-8 text-xs">
+              <Button variant="outline" size="sm" onClick={() => exportPurchaseOrdersTableToPDF(approvedOrders)} disabled={!approvedOrders.length} className="h-8 text-xs">
                 <Download className="w-3 h-3 ml-1" />تصدير
               </Button>
             </div>
@@ -305,20 +438,20 @@ const ProcurementDashboard = () => {
 
           <Card className="shadow-sm">
             <CardContent className="p-0">
-              {!filteredOrders.length ? (
-                <div className="text-center py-8"><FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" /><p className="text-slate-500 text-sm">لا توجد أوامر شراء</p></div>
+              {!approvedOrders.length ? (
+                <div className="text-center py-8"><FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" /><p className="text-slate-500 text-sm">لا توجد أوامر شراء معتمدة</p></div>
               ) : (
                 <>
                   {/* Mobile */}
                   <div className="sm:hidden divide-y">
-                    {filteredOrders.map((order) => (
+                    {approvedOrders.map((order) => (
                       <div key={order.id} className="p-3 space-y-2">
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="font-medium text-sm">{getItemsSummary(order.items)}</p>
                             <p className="text-xs text-slate-500">{order.project_name}</p>
                           </div>
-                          <Badge className="bg-green-100 text-green-800 border-green-300 border text-xs">{order.supplier_name}</Badge>
+                          {getOrderStatusBadge(order.status)}
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
@@ -337,15 +470,17 @@ const ProcurementDashboard = () => {
                         <TableHead className="text-right">الأصناف</TableHead>
                         <TableHead className="text-right">المشروع</TableHead>
                         <TableHead className="text-right">المورد</TableHead>
+                        <TableHead className="text-right">الحالة</TableHead>
                         <TableHead className="text-right">التاريخ</TableHead>
                         <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>
-                        {filteredOrders.map((order) => (
+                        {approvedOrders.map((order) => (
                           <TableRow key={order.id}>
                             <TableCell className="font-medium">{getItemsSummary(order.items)}</TableCell>
                             <TableCell>{order.project_name}</TableCell>
                             <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
+                            <TableCell>{getOrderStatusBadge(order.status)}</TableCell>
                             <TableCell className="text-sm text-slate-500">{formatDate(order.created_at)}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
@@ -415,6 +550,7 @@ const ProcurementDashboard = () => {
                 <div><span className="text-slate-500">المشروع:</span><p className="font-medium">{selectedOrder.project_name}</p></div>
                 <div><span className="text-slate-500">المورد:</span><Badge className="bg-green-50 text-green-800 border">{selectedOrder.supplier_name}</Badge></div>
               </div>
+              <div><span className="text-slate-500 text-sm">الحالة:</span> {getOrderStatusBadge(selectedOrder.status)}</div>
               {selectedOrder.notes && <div><span className="text-slate-500 text-sm">ملاحظات:</span><p className="text-sm">{selectedOrder.notes}</p></div>}
               <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => exportPurchaseOrderToPDF(selectedOrder)}>
                 <Download className="w-4 h-4 ml-2" />تصدير PDF
@@ -424,19 +560,50 @@ const ProcurementDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Order Dialog */}
+      {/* Create Order Dialog - Updated with item selection */}
       <Dialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-md p-4" dir="rtl">
+        <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4" dir="rtl">
           <DialogHeader><DialogTitle className="text-center">إصدار أمر شراء</DialogTitle></DialogHeader>
           {selectedRequest && (
             <div className="space-y-4 mt-2">
               <div className="bg-slate-50 p-3 rounded-lg space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">المشروع:</span><span className="font-medium">{selectedRequest.project_name}</span></div>
-                <div className="border-t pt-2">
-                  <p className="text-slate-500 mb-1">الأصناف:</p>
-                  {selectedRequest.items?.map((item, idx) => (
-                    <p key={idx}>{item.name} - {item.quantity} {item.unit}</p>
-                  ))}
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-slate-500 font-medium">المشروع:</span>
+                  <span className="font-medium">{selectedRequest.project_name}</span>
+                </div>
+                <div className="pt-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-slate-500 font-medium">اختر الأصناف للمورد:</p>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={selectAllItems} className="h-6 text-xs px-2">الكل</Button>
+                      <Button size="sm" variant="outline" onClick={deselectAllItems} className="h-6 text-xs px-2">إلغاء</Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedRequest.items?.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
+                          selectedItemIndices.includes(idx) 
+                            ? 'bg-green-50 border-green-300' 
+                            : 'bg-white border-slate-200 hover:bg-slate-50'
+                        }`}
+                        onClick={() => toggleItemSelection(idx)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox 
+                            checked={selectedItemIndices.includes(idx)}
+                            onCheckedChange={() => toggleItemSelection(idx)}
+                          />
+                          <span className="font-medium">{item.name}</span>
+                        </div>
+                        <span className="text-slate-600">{item.quantity} {item.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    تم اختيار {selectedItemIndices.length} من {selectedRequest.items?.length} أصناف
+                  </p>
                 </div>
               </div>
               <div>
@@ -447,8 +614,12 @@ const ProcurementDashboard = () => {
                 <Label className="text-sm">ملاحظات (اختياري)</Label>
                 <Textarea placeholder="أي ملاحظات..." value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={2} className="mt-1" />
               </div>
-              <Button className="w-full h-11 bg-orange-600 hover:bg-orange-700" onClick={handleCreateOrder} disabled={submitting}>
-                {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />تأكيد أمر الشراء</>}
+              <Button 
+                className="w-full h-11 bg-orange-600 hover:bg-orange-700" 
+                onClick={handleCreateOrder} 
+                disabled={submitting || selectedItemIndices.length === 0}
+              >
+                {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />إصدار أمر شراء ({selectedItemIndices.length} صنف)</>}
               </Button>
             </div>
           )}
