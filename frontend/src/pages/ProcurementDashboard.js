@@ -694,22 +694,6 @@ const ProcurementDashboard = () => {
                       </TableBody>
                     </Table>
                   </div>
-                            <TableCell className="font-bold text-blue-600">{order.request_number || order.request_id?.slice(0, 8).toUpperCase()}</TableCell>
-                            <TableCell>{order.project_name}</TableCell>
-                            <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
-                            <TableCell>{getOrderStatusBadge(order.status)}</TableCell>
-                            <TableCell className="text-sm text-slate-500">{formatDate(order.created_at)}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                                <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
                 </>
               )}
             </CardContent>
