@@ -872,6 +872,154 @@ async def delete_project(
     
     return {"message": "تم حذف المشروع بنجاح"}
 
+# ==================== DEFAULT BUDGET CATEGORIES ROUTES ====================
+# التصنيفات الافتراضية (العامة) التي تُنسخ تلقائياً لكل مشروع جديد
+
+@api_router.get("/default-budget-categories")
+async def get_default_budget_categories(current_user: dict = Depends(get_current_user)):
+    """الحصول على التصنيفات الافتراضية"""
+    categories = await db.default_budget_categories.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return categories
+
+@api_router.post("/default-budget-categories")
+async def create_default_budget_category(
+    category_data: DefaultBudgetCategoryCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """إنشاء تصنيف افتراضي جديد - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه إدارة التصنيفات الافتراضية")
+    
+    # Check if category with same name exists
+    existing = await db.default_budget_categories.find_one({"name": category_data.name})
+    if existing:
+        raise HTTPException(status_code=400, detail="يوجد تصنيف بنفس الاسم")
+    
+    category_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    category_doc = {
+        "id": category_id,
+        "name": category_data.name,
+        "default_budget": category_data.default_budget,
+        "created_by": current_user["id"],
+        "created_by_name": current_user["name"],
+        "created_at": now
+    }
+    
+    await db.default_budget_categories.insert_one(category_doc)
+    
+    await log_audit(
+        entity_type="default_category",
+        entity_id=category_id,
+        action="create",
+        user=current_user,
+        description=f"إنشاء تصنيف افتراضي: {category_data.name}"
+    )
+    
+    return {k: v for k, v in category_doc.items() if k != "_id"}
+
+@api_router.put("/default-budget-categories/{category_id}")
+async def update_default_budget_category(
+    category_id: str,
+    update_data: DefaultBudgetCategoryUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث تصنيف افتراضي - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه تعديل التصنيفات الافتراضية")
+    
+    category = await db.default_budget_categories.find_one({"id": category_id}, {"_id": 0})
+    if not category:
+        raise HTTPException(status_code=404, detail="التصنيف غير موجود")
+    
+    update_fields = {}
+    if update_data.name is not None:
+        update_fields["name"] = update_data.name
+    if update_data.default_budget is not None:
+        update_fields["default_budget"] = update_data.default_budget
+    
+    if update_fields:
+        await db.default_budget_categories.update_one(
+            {"id": category_id},
+            {"$set": update_fields}
+        )
+    
+    return {"message": "تم تحديث التصنيف الافتراضي بنجاح"}
+
+@api_router.delete("/default-budget-categories/{category_id}")
+async def delete_default_budget_category(
+    category_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف تصنيف افتراضي - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه حذف التصنيفات الافتراضية")
+    
+    category = await db.default_budget_categories.find_one({"id": category_id}, {"_id": 0})
+    if not category:
+        raise HTTPException(status_code=404, detail="التصنيف غير موجود")
+    
+    await db.default_budget_categories.delete_one({"id": category_id})
+    
+    await log_audit(
+        entity_type="default_category",
+        entity_id=category_id,
+        action="delete",
+        user=current_user,
+        description=f"حذف تصنيف افتراضي: {category['name']}"
+    )
+    
+    return {"message": "تم حذف التصنيف الافتراضي بنجاح"}
+
+@api_router.post("/default-budget-categories/apply-to-project/{project_id}")
+async def apply_default_categories_to_project(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تطبيق التصنيفات الافتراضية على مشروع موجود - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه تطبيق التصنيفات")
+    
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    
+    # Get default categories
+    default_categories = await db.default_budget_categories.find({}, {"_id": 0}).to_list(100)
+    if not default_categories:
+        raise HTTPException(status_code=400, detail="لا توجد تصنيفات افتراضية")
+    
+    # Get existing categories for this project
+    existing_names = set()
+    existing = await db.budget_categories.find({"project_id": project_id}, {"name": 1}).to_list(100)
+    for cat in existing:
+        existing_names.add(cat["name"])
+    
+    now = datetime.now(timezone.utc).isoformat()
+    added_count = 0
+    
+    for default_cat in default_categories:
+        # Skip if category with same name already exists
+        if default_cat["name"] in existing_names:
+            continue
+        
+        category_id = str(uuid.uuid4())
+        category_doc = {
+            "id": category_id,
+            "name": default_cat["name"],
+            "project_id": project_id,
+            "project_name": project["name"],
+            "estimated_budget": default_cat["default_budget"],
+            "created_by": current_user["id"],
+            "created_by_name": current_user["name"],
+            "created_at": now
+        }
+        await db.budget_categories.insert_one(category_doc)
+        added_count += 1
+    
+    return {"message": f"تم إضافة {added_count} تصنيف للمشروع", "added_count": added_count}
+
 # ==================== BUDGET CATEGORIES ROUTES ====================
 
 @api_router.post("/budget-categories")
