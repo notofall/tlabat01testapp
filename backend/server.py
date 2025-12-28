@@ -552,6 +552,92 @@ async def login(credentials: UserLogin):
 async def get_me(current_user: dict = Depends(get_current_user)):
     return UserResponse(**current_user)
 
+@api_router.post("/auth/change-password")
+async def change_password(
+    password_data: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """تغيير كلمة المرور للمستخدم الحالي"""
+    # Get user with password
+    user = await db.users.find_one({"id": current_user["id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+    
+    # Verify current password
+    if not verify_password(password_data.current_password, user["password"]):
+        raise HTTPException(status_code=400, detail="كلمة المرور الحالية غير صحيحة")
+    
+    # Validate new password
+    if len(password_data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل")
+    
+    # Hash and update new password
+    new_hashed_password = get_password_hash(password_data.new_password)
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"password": new_hashed_password}}
+    )
+    
+    # Log audit
+    await log_audit(
+        entity_type="user",
+        entity_id=current_user["id"],
+        action="change_password",
+        user=current_user,
+        description="تم تغيير كلمة المرور"
+    )
+    
+    return {"message": "تم تغيير كلمة المرور بنجاح"}
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """طلب استعادة كلمة المرور - يرسل كلمة مرور جديدة عبر البريد"""
+    # Find user by email
+    user = await db.users.find_one({"email": request.email})
+    if not user:
+        # Return success even if user not found for security
+        return {"message": "إذا كان البريد مسجلاً، ستصلك كلمة المرور الجديدة"}
+    
+    # Generate random password
+    import random
+    import string
+    new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    
+    # Hash and update password
+    hashed_password = get_password_hash(new_password)
+    await db.users.update_one(
+        {"email": request.email},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    # Send email with new password
+    email_content = f"""
+    <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; border-radius: 8px;">
+        <h2 style="color: #ea580c; margin-bottom: 20px;">استعادة كلمة المرور</h2>
+        <p style="font-size: 16px; color: #374151;">مرحباً {user['name']},</p>
+        <p style="font-size: 14px; color: #6b7280;">تم إنشاء كلمة مرور جديدة لحسابك:</p>
+        <div style="background: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #ea580c;">
+            <p style="font-size: 24px; font-weight: bold; color: #1f2937; letter-spacing: 3px; margin: 0;">{new_password}</p>
+        </div>
+        <p style="font-size: 14px; color: #6b7280;">يرجى تسجيل الدخول وتغيير كلمة المرور فوراً.</p>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+        <p style="font-size: 12px; color: #9ca3af;">نظام إدارة طلبات المواد</p>
+    </div>
+    """
+    
+    email_sent = await send_email_notification(
+        request.email,
+        "استعادة كلمة المرور - نظام إدارة طلبات المواد",
+        email_content
+    )
+    
+    if email_sent:
+        return {"message": "تم إرسال كلمة المرور الجديدة إلى بريدك الإلكتروني"}
+    else:
+        # If email failed, still return success but log it
+        logging.warning(f"Email not configured - New password for {request.email}: {new_password}")
+        return {"message": "تم إنشاء كلمة مرور جديدة. إذا لم تصلك الرسالة، تواصل مع الإدارة.", "temp_password": new_password}
+
 # ==================== USERS ROUTES ====================
 
 @api_router.get("/users/engineers", response_model=List[UserResponse])
