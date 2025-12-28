@@ -548,10 +548,14 @@ const ProcurementDashboard = () => {
                       <div key={order.id} className="p-3 space-y-2">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-medium text-sm">{getItemsSummary(order.items)}</p>
+                            <p className="font-mono text-orange-600 font-bold text-sm">{order.id?.slice(0, 8).toUpperCase()}</p>
                             <p className="text-xs text-slate-500">{order.project_name}</p>
                           </div>
                           {getOrderStatusBadge(order.status)}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><span className="text-slate-400">رقم الطلب:</span> <span className="font-mono">{order.request_id?.slice(0, 8).toUpperCase()}</span></div>
+                          <div><span className="text-slate-400">المورد:</span> {order.supplier_name}</div>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
