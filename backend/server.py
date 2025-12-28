@@ -426,7 +426,7 @@ async def approve_request(request_id: str, current_user: dict = Depends(get_curr
         raise HTTPException(status_code=403, detail="هذا الطلب غير موجه لك")
     
     if request["status"] != RequestStatus.PENDING_ENGINEER:
-        raise HTTPException(status_code=400, detail="لا يمكن تعديل هذا الطلب")
+        raise HTTPException(status_code=400, detail="هذا الطلب تم اعتماده أو رفضه مسبقاً")
     
     await db.material_requests.update_one(
         {"id": request_id},
@@ -477,7 +477,7 @@ async def reject_request(
         raise HTTPException(status_code=403, detail="هذا الطلب غير موجه لك")
     
     if request["status"] != RequestStatus.PENDING_ENGINEER:
-        raise HTTPException(status_code=400, detail="لا يمكن تعديل هذا الطلب")
+        raise HTTPException(status_code=400, detail="هذا الطلب تم اعتماده أو رفضه مسبقاً")
     
     await db.material_requests.update_one(
         {"id": request_id},
