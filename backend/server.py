@@ -1065,6 +1065,7 @@ async def create_purchase_order(
         "project_name": request["project_name"],
         "supplier_id": order_data.supplier_id,
         "supplier_name": order_data.supplier_name,
+        "category_id": order_data.category_id,  # تصنيف الميزانية
         "notes": order_data.notes,
         "terms_conditions": order_data.terms_conditions,
         "manager_id": current_user["id"],
