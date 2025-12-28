@@ -548,6 +548,9 @@ async def create_purchase_order(
     supervisor = await db.users.find_one({"id": request["supervisor_id"]}, {"_id": 0})
     engineer = await db.users.find_one({"id": request["engineer_id"]}, {"_id": 0})
     
+    # Build items list for email
+    items_html = "".join([f"<li>{item['name']} - {item['quantity']} {item.get('unit', 'قطعة')}</li>" for item in request.get('items', [])])
+    
     for user in [supervisor, engineer]:
         if user:
             email_content = f"""
@@ -555,11 +558,9 @@ async def create_purchase_order(
                 <h2>تم إصدار أمر شراء</h2>
                 <p>مرحباً {user['name']},</p>
                 <p>تم إصدار أمر شراء للطلب:</p>
-                <ul>
-                    <li><strong>اسم المادة:</strong> {request['material_name']}</li>
-                    <li><strong>الكمية:</strong> {request['quantity']}</li>
-                    <li><strong>المورد:</strong> {order_data.supplier_name}</li>
-                </ul>
+                <p><strong>المواد:</strong></p>
+                <ul>{items_html}</ul>
+                <p><strong>المورد:</strong> {order_data.supplier_name}</p>
             </div>
             """
             await send_email_notification(
