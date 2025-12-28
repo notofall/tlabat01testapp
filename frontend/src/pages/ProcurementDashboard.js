@@ -660,7 +660,19 @@ const ProcurementDashboard = () => {
           {/* Advanced Filters */}
           <Card className="mb-3 bg-slate-50">
             <CardContent className="p-3">
-              <div className="space-y-3">
+              {/* Mobile: Collapsible filters */}
+              <div className="sm:hidden mb-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => document.getElementById('mobile-filters').classList.toggle('hidden')}
+                  className="w-full justify-between"
+                >
+                  <span className="flex items-center"><Filter className="w-4 h-4 ml-2" />الفلاتر والبحث</span>
+                  <span className="text-xs text-slate-500">{(filterOrderId || filterRequestId || filterProject || filterSupplier || filterStartDate || filterEndDate) ? '(مفعّلة)' : ''}</span>
+                </Button>
+              </div>
+              <div id="mobile-filters" className="hidden sm:block space-y-3">
                 {/* Row 1: Order ID, Request ID, Project, Supplier */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
