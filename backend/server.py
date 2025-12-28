@@ -738,13 +738,19 @@ async def create_budget_category(
     if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
         raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه إدارة التصنيفات")
     
+    # Get project name
+    project = await db.projects.find_one({"id": category_data.project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    
     category_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
     category_doc = {
         "id": category_id,
         "name": category_data.name,
-        "project_name": category_data.project_name,
+        "project_id": category_data.project_id,
+        "project_name": project["name"],
         "estimated_budget": category_data.estimated_budget,
         "created_by": current_user["id"],
         "created_by_name": current_user["name"],
@@ -753,11 +759,20 @@ async def create_budget_category(
     
     await db.budget_categories.insert_one(category_doc)
     
+    await log_audit(
+        entity_type="category",
+        entity_id=category_id,
+        action="create",
+        user=current_user,
+        description=f"إنشاء تصنيف ميزانية: {category_data.name} للمشروع {project['name']}"
+    )
+    
     # Return without _id
     return {
         "id": category_id,
         "name": category_data.name,
-        "project_name": category_data.project_name,
+        "project_id": category_data.project_id,
+        "project_name": project["name"],
         "estimated_budget": category_data.estimated_budget,
         "created_by": current_user["id"],
         "created_by_name": current_user["name"],
@@ -769,13 +784,13 @@ async def create_budget_category(
 
 @api_router.get("/budget-categories")
 async def get_budget_categories(
-    project_name: Optional[str] = None,
+    project_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """الحصول على تصنيفات الميزانية مع المصروف الفعلي"""
     query = {}
-    if project_name:
-        query["project_name"] = project_name
+    if project_id:
+        query["project_id"] = project_id
     
     categories = await db.budget_categories.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
     
