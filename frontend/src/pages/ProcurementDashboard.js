@@ -567,7 +567,8 @@ const ProcurementDashboard = () => {
                   <div className="hidden sm:block overflow-x-auto">
                     <Table>
                       <TableHeader><TableRow className="bg-slate-50">
-                        <TableHead className="text-right">الأصناف</TableHead>
+                        <TableHead className="text-right">رقم أمر الشراء</TableHead>
+                        <TableHead className="text-right">رقم الطلب</TableHead>
                         <TableHead className="text-right">المشروع</TableHead>
                         <TableHead className="text-right">المورد</TableHead>
                         <TableHead className="text-right">الحالة</TableHead>
@@ -577,7 +578,8 @@ const ProcurementDashboard = () => {
                       <TableBody>
                         {approvedOrders.map((order) => (
                           <TableRow key={order.id}>
-                            <TableCell className="font-medium">{getItemsSummary(order.items)}</TableCell>
+                            <TableCell className="font-mono text-orange-600 font-bold">{order.id?.slice(0, 8).toUpperCase()}</TableCell>
+                            <TableCell className="font-mono text-slate-600">{order.request_id?.slice(0, 8).toUpperCase()}</TableCell>
                             <TableCell>{order.project_name}</TableCell>
                             <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
                             <TableCell>{getOrderStatusBadge(order.status)}</TableCell>
