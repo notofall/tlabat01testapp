@@ -1277,8 +1277,8 @@ async def get_requests(current_user: dict = Depends(get_current_user)):
     elif current_user["role"] == UserRole.ENGINEER:
         query["engineer_id"] = current_user["id"]
     elif current_user["role"] == UserRole.PROCUREMENT_MANAGER:
-        # مدير المشتريات يرى الطلبات المعتمدة والتي بها أوامر شراء جزئية
-        query["status"] = {"$in": [RequestStatus.APPROVED_BY_ENGINEER, RequestStatus.PARTIALLY_ORDERED]}
+        # مدير المشتريات يرى جميع الطلبات لمتابعة سير العمل
+        pass  # No filter - see all requests
     
     # Limit to 500 results for performance (with indexes, this is fast)
     requests = await db.material_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
