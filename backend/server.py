@@ -1739,6 +1739,9 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
         o.setdefault("terms_conditions", None)
         o.setdefault("expected_delivery_date", None)
         o.setdefault("category_id", None)
+        o.setdefault("supplier_receipt_number", None)
+        o.setdefault("received_by_id", None)
+        o.setdefault("received_by_name", None)
         
         # Add category name
         o["category_name"] = categories_map.get(o.get("category_id"), None)
