@@ -1736,6 +1736,322 @@ async def get_remaining_items(request_id: str, current_user: dict = Depends(get_
     return {"remaining_items": remaining_items, "all_items": [{"index": i, **item} for i, item in enumerate(all_items)]}
     return [PurchaseOrderResponse(**o) for o in orders]
 
+# ==================== AUDIT TRAIL ROUTES ====================
+
+@api_router.get("/audit-logs")
+async def get_audit_logs(
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    limit: int = 100,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على سجل المراجعة"""
+    query = {}
+    if entity_type:
+        query["entity_type"] = entity_type
+    if entity_id:
+        query["entity_id"] = entity_id
+    if user_id:
+        query["user_id"] = user_id
+    
+    logs = await db.audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+    return logs
+
+@api_router.get("/audit-logs/entity/{entity_type}/{entity_id}")
+async def get_entity_audit_logs(
+    entity_type: str,
+    entity_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على سجل المراجعة لكيان محدد"""
+    logs = await db.audit_logs.find(
+        {"entity_type": entity_type, "entity_id": entity_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).to_list(100)
+    return logs
+
+# ==================== ATTACHMENTS ROUTES ====================
+
+import os
+import shutil
+from fastapi import UploadFile, File
+
+UPLOAD_DIR = "/app/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@api_router.post("/attachments/{entity_type}/{entity_id}")
+async def upload_attachment(
+    entity_type: str,
+    entity_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """رفع مرفق لطلب أو أمر شراء"""
+    if entity_type not in ["request", "order"]:
+        raise HTTPException(status_code=400, detail="نوع الكيان غير صالح")
+    
+    # Validate entity exists
+    if entity_type == "request":
+        entity = await db.material_requests.find_one({"id": entity_id})
+    else:
+        entity = await db.purchase_orders.find_one({"id": entity_id})
+    
+    if not entity:
+        raise HTTPException(status_code=404, detail="الكيان غير موجود")
+    
+    # Generate unique filename
+    attachment_id = str(uuid.uuid4())
+    file_ext = os.path.splitext(file.filename)[1]
+    filename = f"{attachment_id}{file_ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    # Save file
+    try:
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        file_size = len(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"فشل في حفظ الملف: {str(e)}")
+    
+    # Save attachment record
+    attachment_doc = {
+        "id": attachment_id,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "filename": filename,
+        "original_filename": file.filename,
+        "file_size": file_size,
+        "file_type": file.content_type or "application/octet-stream",
+        "uploaded_by": current_user["id"],
+        "uploaded_by_name": current_user["name"],
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.attachments.insert_one(attachment_doc)
+    
+    await log_audit(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action="attachment_upload",
+        user=current_user,
+        description=f"رفع مرفق: {file.filename}"
+    )
+    
+    return {k: v for k, v in attachment_doc.items() if k != "_id"}
+
+@api_router.get("/attachments/{entity_type}/{entity_id}")
+async def get_attachments(
+    entity_type: str,
+    entity_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على مرفقات كيان"""
+    attachments = await db.attachments.find(
+        {"entity_type": entity_type, "entity_id": entity_id},
+        {"_id": 0}
+    ).sort("uploaded_at", -1).to_list(50)
+    return attachments
+
+@api_router.delete("/attachments/{attachment_id}")
+async def delete_attachment(
+    attachment_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف مرفق"""
+    attachment = await db.attachments.find_one({"id": attachment_id}, {"_id": 0})
+    if not attachment:
+        raise HTTPException(status_code=404, detail="المرفق غير موجود")
+    
+    # Only uploader or manager can delete
+    if attachment["uploaded_by"] != current_user["id"] and current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="غير مصرح لك بحذف هذا المرفق")
+    
+    # Delete file
+    file_path = os.path.join(UPLOAD_DIR, attachment["filename"])
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    await db.attachments.delete_one({"id": attachment_id})
+    
+    await log_audit(
+        entity_type=attachment["entity_type"],
+        entity_id=attachment["entity_id"],
+        action="attachment_delete",
+        user=current_user,
+        description=f"حذف مرفق: {attachment['original_filename']}"
+    )
+    
+    return {"message": "تم حذف المرفق بنجاح"}
+
+from fastapi.responses import FileResponse
+
+@api_router.get("/attachments/download/{attachment_id}")
+async def download_attachment(
+    attachment_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحميل مرفق"""
+    attachment = await db.attachments.find_one({"id": attachment_id}, {"_id": 0})
+    if not attachment:
+        raise HTTPException(status_code=404, detail="المرفق غير موجود")
+    
+    file_path = os.path.join(UPLOAD_DIR, attachment["filename"])
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="الملف غير موجود")
+    
+    return FileResponse(
+        file_path,
+        filename=attachment["original_filename"],
+        media_type=attachment["file_type"]
+    )
+
+# ==================== ADVANCED REPORTS ====================
+
+@api_router.get("/reports/project/{project_id}")
+async def get_project_report(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير مفصل للمشروع"""
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+    
+    # Get all requests for project
+    requests = await db.material_requests.find({"project_id": project_id}, {"_id": 0}).to_list(1000)
+    
+    # Get all orders for project
+    orders = await db.purchase_orders.find({"project_id": project_id}, {"_id": 0}).to_list(1000)
+    
+    # Get budget categories
+    categories = await db.budget_categories.find({"project_id": project_id}, {"_id": 0}).to_list(100)
+    
+    # Calculate budget stats per category
+    budget_breakdown = []
+    for cat in categories:
+        pipeline = [
+            {"$match": {"category_id": cat["id"]}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}}
+        ]
+        spent_result = await db.purchase_orders.aggregate(pipeline).to_list(1)
+        actual_spent = spent_result[0]["total"] if spent_result else 0
+        
+        budget_breakdown.append({
+            "category_name": cat["name"],
+            "estimated_budget": cat["estimated_budget"],
+            "actual_spent": actual_spent,
+            "remaining": cat["estimated_budget"] - actual_spent,
+            "percentage_used": round((actual_spent / cat["estimated_budget"] * 100) if cat["estimated_budget"] > 0 else 0, 2)
+        })
+    
+    # Spending by supplier
+    supplier_pipeline = [
+        {"$match": {"project_id": project_id}},
+        {"$group": {"_id": "$supplier_name", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}}
+    ]
+    supplier_spending = await db.purchase_orders.aggregate(supplier_pipeline).to_list(100)
+    
+    # Orders by status
+    status_pipeline = [
+        {"$match": {"project_id": project_id}},
+        {"$group": {"_id": "$status", "count": {"$sum": 1}, "total": {"$sum": "$total_amount"}}}
+    ]
+    status_breakdown = await db.purchase_orders.aggregate(status_pipeline).to_list(20)
+    
+    # Monthly spending
+    monthly_pipeline = [
+        {"$match": {"project_id": project_id}},
+        {"$addFields": {"month": {"$substr": ["$created_at", 0, 7]}}},
+        {"$group": {"_id": "$month", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}}
+    ]
+    monthly_spending = await db.purchase_orders.aggregate(monthly_pipeline).to_list(24)
+    
+    return {
+        "project": project,
+        "summary": {
+            "total_requests": len(requests),
+            "total_orders": len(orders),
+            "total_budget": sum(c["estimated_budget"] for c in categories),
+            "total_spent": sum(o.get("total_amount", 0) for o in orders),
+            "pending_requests": len([r for r in requests if r["status"] == "pending"]),
+            "approved_orders": len([o for o in orders if o["status"] == "approved"]),
+            "delivered_orders": len([o for o in orders if o["status"] == "delivered"])
+        },
+        "budget_breakdown": budget_breakdown,
+        "supplier_spending": [{"supplier": s["_id"], "total": s["total"], "orders": s["count"]} for s in supplier_spending],
+        "status_breakdown": [{"status": s["_id"], "count": s["count"], "total": s["total"]} for s in status_breakdown],
+        "monthly_spending": [{"month": m["_id"], "total": m["total"], "orders": m["count"]} for m in monthly_spending]
+    }
+
+@api_router.get("/reports/spending-analysis")
+async def get_spending_analysis(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحليل الإنفاق الشامل"""
+    match_query = {}
+    if start_date or end_date:
+        match_query["created_at"] = {}
+        if start_date:
+            match_query["created_at"]["$gte"] = start_date
+        if end_date:
+            match_query["created_at"]["$lte"] = end_date
+    
+    # Spending by project
+    project_pipeline = [
+        {"$match": match_query} if match_query else {"$match": {}},
+        {"$group": {"_id": "$project_name", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}}
+    ]
+    project_spending = await db.purchase_orders.aggregate(project_pipeline).to_list(100)
+    
+    # Spending by supplier
+    supplier_pipeline = [
+        {"$match": match_query} if match_query else {"$match": {}},
+        {"$group": {"_id": "$supplier_name", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}}
+    ]
+    supplier_spending = await db.purchase_orders.aggregate(supplier_pipeline).to_list(100)
+    
+    # Spending by category
+    category_pipeline = [
+        {"$match": {**match_query, "category_id": {"$ne": None}}} if match_query else {"$match": {"category_id": {"$ne": None}}},
+        {"$lookup": {"from": "budget_categories", "localField": "category_id", "foreignField": "id", "as": "category"}},
+        {"$unwind": {"path": "$category", "preserveNullAndEmptyArrays": True}},
+        {"$group": {"_id": "$category.name", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}}
+    ]
+    category_spending = await db.purchase_orders.aggregate(category_pipeline).to_list(100)
+    
+    # Monthly trend
+    monthly_pipeline = [
+        {"$match": match_query} if match_query else {"$match": {}},
+        {"$addFields": {"month": {"$substr": ["$created_at", 0, 7]}}},
+        {"$group": {"_id": "$month", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}}
+    ]
+    monthly_trend = await db.purchase_orders.aggregate(monthly_pipeline).to_list(24)
+    
+    # Total stats
+    total_orders = await db.purchase_orders.count_documents(match_query or {})
+    total_pipeline = [
+        {"$match": match_query} if match_query else {"$match": {}},
+        {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}}
+    ]
+    total_result = await db.purchase_orders.aggregate(total_pipeline).to_list(1)
+    total_spent = total_result[0]["total"] if total_result else 0
+    
+    return {
+        "total_orders": total_orders,
+        "total_spent": total_spent,
+        "average_order_value": round(total_spent / total_orders, 2) if total_orders > 0 else 0,
+        "by_project": [{"project": p["_id"], "total": p["total"], "orders": p["count"]} for p in project_spending],
+        "by_supplier": [{"supplier": s["_id"], "total": s["total"], "orders": s["count"]} for s in supplier_spending],
+        "by_category": [{"category": c["_id"] or "بدون تصنيف", "total": c["total"], "orders": c["count"]} for c in category_spending],
+        "monthly_trend": [{"month": m["_id"], "total": m["total"], "orders": m["count"]} for m in monthly_trend]
+    }
+
 # ==================== DASHBOARD STATS ====================
 
 @api_router.get("/dashboard/stats")
