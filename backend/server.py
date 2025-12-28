@@ -92,6 +92,9 @@ class PurchaseOrderStatus:
     PENDING_APPROVAL = "pending_approval"  # بانتظار اعتماد مدير المشتريات
     APPROVED = "approved"  # معتمد - جاهز للطباعة
     PRINTED = "printed"  # تمت الطباعة
+    SHIPPED = "shipped"  # تم الشحن
+    DELIVERED = "delivered"  # تم التسليم
+    PARTIALLY_DELIVERED = "partially_delivered"  # تسليم جزئي
 
 # User Models
 class UserCreate(BaseModel):
@@ -116,11 +119,40 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+# Supplier Models
+class SupplierCreate(BaseModel):
+    name: str
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+
+class SupplierResponse(BaseModel):
+    id: str
+    name: str
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: str
+
 # Material Item Model (single item in a request)
 class MaterialItem(BaseModel):
     name: str
     quantity: int
     unit: str = "قطعة"  # الوحدة: قطعة، طن، متر، كيس، الخ
+    estimated_price: Optional[float] = None  # السعر التقديري (اختياري)
+
+# Purchase Order Item with Price
+class PurchaseOrderItem(BaseModel):
+    name: str
+    quantity: int
+    unit: str = "قطعة"
+    unit_price: float = 0  # سعر الوحدة
+    total_price: float = 0  # السعر الإجمالي
+    delivered_quantity: int = 0  # الكمية المستلمة
 
 # Material Request Models
 class MaterialRequestCreate(BaseModel):
@@ -128,6 +160,7 @@ class MaterialRequestCreate(BaseModel):
     project_name: str
     reason: str
     engineer_id: str
+    expected_delivery_date: Optional[str] = None  # تاريخ الحاجة المتوقع
 
 class MaterialRequestUpdate(BaseModel):
     status: str
