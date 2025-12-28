@@ -422,6 +422,61 @@ const ProcurementDashboard = () => {
     }
   };
 
+  // Open Edit Order Dialog
+  const openEditOrderDialog = (order) => {
+    setEditingOrder(order);
+    const prices = {};
+    order.items?.forEach((item, idx) => {
+      prices[idx] = item.unit_price || "";
+    });
+    setEditOrderData({
+      supplier_name: order.supplier_name || "",
+      supplier_id: order.supplier_id || "",
+      category_id: order.category_id || "",
+      notes: order.notes || "",
+      terms_conditions: order.terms_conditions || "",
+      expected_delivery_date: order.expected_delivery_date?.split("T")[0] || "",
+      supplier_invoice_number: order.supplier_invoice_number || "",
+      item_prices: prices
+    });
+    setEditOrderDialogOpen(true);
+  };
+
+  // Save Edit Order
+  const handleSaveOrderEdit = async () => {
+    if (!editingOrder) return;
+    
+    setSubmitting(true);
+    try {
+      // Build item prices array
+      const pricesArray = editingOrder.items?.map((item, idx) => ({
+        name: item.name,
+        index: idx,
+        unit_price: parseFloat(editOrderData.item_prices[idx]) || 0
+      })) || [];
+
+      await axios.put(`${API_URL}/purchase-orders/${editingOrder.id}`, {
+        supplier_name: editOrderData.supplier_name || null,
+        supplier_id: editOrderData.supplier_id || null,
+        category_id: editOrderData.category_id || null,
+        notes: editOrderData.notes,
+        terms_conditions: editOrderData.terms_conditions,
+        expected_delivery_date: editOrderData.expected_delivery_date || null,
+        supplier_invoice_number: editOrderData.supplier_invoice_number,
+        item_prices: pricesArray
+      }, getAuthHeaders());
+      
+      toast.success("تم تعديل أمر الشراء بنجاح");
+      setEditOrderDialogOpen(false);
+      setEditingOrder(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "فشل في تعديل أمر الشراء");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const formatDateFull = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
   const formatCurrency = (amount) => `${(amount || 0).toLocaleString('ar-SA')} ر.س`;
