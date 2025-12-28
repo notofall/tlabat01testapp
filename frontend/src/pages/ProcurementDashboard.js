@@ -66,6 +66,7 @@ const ProcurementDashboard = () => {
   const [projects, setProjects] = useState([]);
   const [projectReportDialogOpen, setProjectReportDialogOpen] = useState(false);
   const [selectedProjectReport, setSelectedProjectReport] = useState(null);
+  const [budgetReportProjectFilter, setBudgetReportProjectFilter] = useState("");  // فلتر المشروع في تقرير الميزانية
 
   const fetchData = async () => {
     try {
