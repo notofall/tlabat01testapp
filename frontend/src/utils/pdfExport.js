@@ -78,9 +78,10 @@ const createPDFElement = (html) => {
     top: 0;
     width: 210mm;
     background: white;
-    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    font-family: 'Noto Naskh Arabic', 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
     direction: rtl;
     text-align: right;
+    unicode-bidi: bidi-override;
   `;
   document.body.appendChild(container);
   return container;
