@@ -279,11 +279,13 @@ export const exportPurchaseOrderToPDF = (order) => {
     </tr>
   `).join('');
 
+  const requestNumber = order.request_number || order.request_id?.slice(0, 8).toUpperCase() || '-';
+
   const html = `
     <div style="border: 4px solid #ea580c; padding: 20px; margin-bottom: 25px; text-align: center;">
       <div class="title">أمر شراء</div>
       <div style="font-size: 16px; font-weight: bold; margin-top: 10px;">رقم الأمر: ${order.id?.slice(0, 8).toUpperCase() || '-'}</div>
-      <div class="subtitle">رقم الطلب: ${order.request_id?.slice(0, 8).toUpperCase() || '-'}</div>
+      <div class="subtitle">رقم الطلب: ${requestNumber}</div>
     </div>
     
     <div class="info-box">
