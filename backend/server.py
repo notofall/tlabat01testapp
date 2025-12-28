@@ -917,17 +917,26 @@ async def delete_budget_category(
 
 @api_router.get("/budget-reports")
 async def get_budget_reports(
+    project_id: Optional[str] = None,
     project_name: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """تقرير المقارنة بين الميزانية التقديرية والفعلية"""
     query = {}
-    if project_name:
+    if project_id:
+        query["project_id"] = project_id
+    elif project_name:
         query["project_name"] = project_name
     
     categories = await db.budget_categories.find(query, {"_id": 0}).to_list(500)
     
+    # Get project info if filtering by project
+    project_info = None
+    if project_id:
+        project_info = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    
     report = {
+        "project": project_info,
         "total_estimated": 0,
         "total_spent": 0,
         "total_remaining": 0,
@@ -952,7 +961,8 @@ async def get_budget_reports(
         cat_report = {
             "id": cat["id"],
             "name": cat["name"],
-            "project_name": cat["project_name"],
+            "project_id": cat.get("project_id"),
+            "project_name": cat.get("project_name"),
             "estimated_budget": cat["estimated_budget"],
             "actual_spent": actual_spent,
             "remaining": remaining,
