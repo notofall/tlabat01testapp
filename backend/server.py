@@ -277,10 +277,12 @@ async def create_material_request(
     request_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
+    # Convert items to dict format
+    items_list = [item.model_dump() for item in request_data.items]
+    
     request_doc = {
         "id": request_id,
-        "material_name": request_data.material_name,
-        "quantity": request_data.quantity,
+        "items": items_list,
         "project_name": request_data.project_name,
         "reason": request_data.reason,
         "supervisor_id": current_user["id"],
@@ -295,19 +297,20 @@ async def create_material_request(
     
     await db.material_requests.insert_one(request_doc)
     
+    # Build items list for email
+    items_html = "".join([f"<li>{item.name} - {item.quantity} {item.unit}</li>" for item in request_data.items])
+    
     # Send email notification to engineer
     email_content = f"""
     <div dir="rtl" style="font-family: Arial, sans-serif;">
         <h2>طلب مواد جديد</h2>
         <p>مرحباً {engineer['name']},</p>
         <p>تم استلام طلب مواد جديد يحتاج لاعتمادك:</p>
-        <ul>
-            <li><strong>اسم المادة:</strong> {request_data.material_name}</li>
-            <li><strong>الكمية:</strong> {request_data.quantity}</li>
-            <li><strong>المشروع:</strong> {request_data.project_name}</li>
-            <li><strong>السبب:</strong> {request_data.reason}</li>
-            <li><strong>المشرف:</strong> {current_user['name']}</li>
-        </ul>
+        <p><strong>المواد المطلوبة:</strong></p>
+        <ul>{items_html}</ul>
+        <p><strong>المشروع:</strong> {request_data.project_name}</p>
+        <p><strong>السبب:</strong> {request_data.reason}</p>
+        <p><strong>المشرف:</strong> {current_user['name']}</p>
     </div>
     """
     await send_email_notification(
