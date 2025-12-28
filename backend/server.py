@@ -199,7 +199,7 @@ async def register(user_data: UserCreate):
         raise HTTPException(status_code=400, detail="البريد الإلكتروني مسجل مسبقاً")
     
     # Validate role
-    valid_roles = [UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.PROCUREMENT_MANAGER]
+    valid_roles = [UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.PROCUREMENT_MANAGER, UserRole.PRINTER]
     if user_data.role not in valid_roles:
         raise HTTPException(status_code=400, detail="الدور غير صالح")
     
