@@ -735,6 +735,38 @@ const ProcurementDashboard = () => {
                         </TableBody>
                       </Table>
                     </div>
+                    
+                    {/* Pagination for Requests */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between p-3 border-t bg-slate-50">
+                        <span className="text-xs text-slate-500">
+                          عرض {startIndex + 1}-{Math.min(startIndex + REQUESTS_PER_PAGE, allFilteredRequests.length)} من {allFilteredRequests.length}
+                        </span>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRequestsPage(p => Math.max(1, p - 1))}
+                            disabled={requestsPage === 1}
+                            className="h-7 px-2 text-xs"
+                          >
+                            السابق
+                          </Button>
+                          <span className="flex items-center px-2 text-xs text-slate-600">
+                            {requestsPage} / {totalPages}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRequestsPage(p => Math.min(totalPages, p + 1))}
+                            disabled={requestsPage === totalPages}
+                            className="h-7 px-2 text-xs"
+                          >
+                            التالي
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 );
               })()}
