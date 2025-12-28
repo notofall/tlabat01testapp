@@ -6,6 +6,7 @@ import SupervisorDashboard from "./pages/SupervisorDashboard";
 import EngineerDashboard from "./pages/EngineerDashboard";
 import ProcurementDashboard from "./pages/ProcurementDashboard";
 import PrinterDashboard from "./pages/PrinterDashboard";
+import DeliveryTrackerDashboard from "./pages/DeliveryTrackerDashboard";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import "./App.css";
 
@@ -33,6 +34,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (user.role === "engineer") return <Navigate to="/engineer" replace />;
     if (user.role === "procurement_manager") return <Navigate to="/procurement" replace />;
     if (user.role === "printer") return <Navigate to="/printer" replace />;
+    if (user.role === "delivery_tracker") return <Navigate to="/delivery-tracker" replace />;
     return <Navigate to="/login" replace />;
   }
 
@@ -55,6 +57,7 @@ const PublicRoute = ({ children }) => {
     if (user.role === "engineer") return <Navigate to="/engineer" replace />;
     if (user.role === "procurement_manager") return <Navigate to="/procurement" replace />;
     if (user.role === "printer") return <Navigate to="/printer" replace />;
+    if (user.role === "delivery_tracker") return <Navigate to="/delivery-tracker" replace />;
   }
 
   return children;
@@ -122,6 +125,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["printer"]}>
                   <PrinterDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/delivery-tracker"
+              element={
+                <ProtectedRoute allowedRoles={["delivery_tracker"]}>
+                  <DeliveryTrackerDashboard />
                 </ProtectedRoute>
               }
             />
