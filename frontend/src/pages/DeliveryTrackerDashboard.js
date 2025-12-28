@@ -113,6 +113,219 @@ const DeliveryTrackerDashboard = () => {
     } catch { return dateStr; }
   };
 
+  // تصدير إيصال الاستلام كـ PDF
+  const exportReceiptPDF = (order) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    const itemsRows = order.items?.map((item, idx) => `
+      <tr style="background: ${idx % 2 === 0 ? '#f9fafb' : '#fff'};">
+        <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${idx + 1}</td>
+        <td style="padding: 8px; border: 1px solid #e5e7eb;">${item.name}</td>
+        <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
+        <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${item.unit || 'قطعة'}</td>
+        <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; color: #059669; font-weight: bold;">${item.delivered_quantity || 0}</td>
+        <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; color: ${(item.quantity - (item.delivered_quantity || 0)) > 0 ? '#dc2626' : '#059669'};">
+          ${item.quantity - (item.delivered_quantity || 0)}
+        </td>
+      </tr>
+    `).join('') || '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <title>إيصال استلام - ${order.id?.slice(0, 8).toUpperCase()}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Cairo', Arial, sans-serif;
+            direction: rtl;
+            padding: 20px;
+            background: white;
+            font-size: 12px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          @media print {
+            body { padding: 10px; }
+            .no-print { display: none !important; }
+            @page { size: A4; margin: 10mm; }
+          }
+          .header {
+            border: 2px solid #059669;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+          }
+          .header h1 { color: #059669; font-size: 24px; margin-bottom: 5px; }
+          .header .order-num { font-size: 14px; color: #374151; }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+          }
+          .info-item { display: flex; gap: 8px; }
+          .info-label { color: #6b7280; min-width: 100px; }
+          .info-value { font-weight: 600; color: #1f2937; }
+          .receipt-box {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+          }
+          .receipt-box h2 { color: #92400e; font-size: 14px; margin-bottom: 10px; }
+          .receipt-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: 2px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            display: inline-block;
+          }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th {
+            background: #374151;
+            color: white;
+            padding: 10px;
+            font-size: 11px;
+            border: 1px solid #374151;
+          }
+          .signature-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding: 0 30px;
+          }
+          .signature-box {
+            text-align: center;
+            width: 40%;
+          }
+          .signature-line {
+            border-top: 1px solid #9ca3af;
+            padding-top: 8px;
+            margin-top: 40px;
+            color: #6b7280;
+            font-size: 11px;
+          }
+          .footer {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+            margin-top: 30px;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 10px;
+          }
+          .print-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+          }
+          .status-delivered { background: #d1fae5; color: #065f46; }
+          .status-partial { background: #ffedd5; color: #9a3412; }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn no-print" onclick="window.print()">طباعة / حفظ PDF</button>
+        
+        <div class="header">
+          <h1>إيصال استلام مواد</h1>
+          <div class="order-num">أمر شراء رقم: ${order.id?.slice(0, 8).toUpperCase()}</div>
+          <span class="status-badge ${order.status === 'delivered' ? 'status-delivered' : 'status-partial'}">
+            ${order.status === 'delivered' ? 'تم التسليم بالكامل' : 'تسليم جزئي'}
+          </span>
+        </div>
+        
+        <div class="receipt-box">
+          <h2>رقم استلام المورد</h2>
+          <div class="receipt-number">${order.supplier_receipt_number || '-'}</div>
+        </div>
+        
+        <div class="info-grid">
+          <div class="info-item"><span class="info-label">المشروع:</span> <span class="info-value">${order.project_name || '-'}</span></div>
+          <div class="info-item"><span class="info-label">تاريخ الاستلام:</span> <span class="info-value">${formatDate(order.delivery_date || order.updated_at)}</span></div>
+          <div class="info-item"><span class="info-label">المورد:</span> <span class="info-value">${order.supplier_name || '-'}</span></div>
+          <div class="info-item"><span class="info-label">تاريخ أمر الشراء:</span> <span class="info-value">${formatDate(order.created_at)}</span></div>
+          <div class="info-item"><span class="info-label">المستلم:</span> <span class="info-value">${order.received_by_name || '-'}</span></div>
+          <div class="info-item"><span class="info-label">المبلغ الإجمالي:</span> <span class="info-value" style="color: #059669;">${order.total_amount?.toLocaleString('ar-SA') || 0} ر.س</span></div>
+        </div>
+        
+        <h3 style="color: #374151; margin-bottom: 10px; font-size: 14px; border-bottom: 2px solid #059669; padding-bottom: 5px;">تفاصيل المواد المستلمة</h3>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th>اسم المادة</th>
+              <th style="width: 80px;">الكمية المطلوبة</th>
+              <th style="width: 60px;">الوحدة</th>
+              <th style="width: 80px;">الكمية المستلمة</th>
+              <th style="width: 80px;">المتبقي</th>
+            </tr>
+          </thead>
+          <tbody>${itemsRows}</tbody>
+        </table>
+        
+        ${order.delivery_notes ? `
+          <div style="background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 10px; margin-bottom: 20px;">
+            <strong style="color: #1d4ed8;">ملاحظات الاستلام:</strong>
+            <p style="margin-top: 5px; color: #374151;">${order.delivery_notes}</p>
+          </div>
+        ` : ''}
+        
+        <div class="signature-area">
+          <div class="signature-box">
+            <div class="signature-line">توقيع المستلم</div>
+          </div>
+          <div class="signature-box">
+            <div class="signature-line">توقيع المورد / المندوب</div>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>نظام إدارة طلبات المواد - إيصال استلام</p>
+          <p style="margin-top: 5px;">تاريخ الطباعة: ${formatDate(new Date().toISOString())}</p>
+        </div>
+        
+        <script>
+          document.fonts.ready.then(() => { setTimeout(() => window.print(), 500); });
+        </script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  // تقسيم الأوامر حسب الحالة
+  const pendingOrders = orders.filter(o => ['approved', 'printed', 'shipped', 'partially_delivered'].includes(o.status));
+  const deliveredOrders = orders.filter(o => o.status === 'delivered');
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div></div>;
   }
