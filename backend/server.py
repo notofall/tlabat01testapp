@@ -574,6 +574,7 @@ async def create_purchase_order(
     order_doc = {
         "id": order_id,
         "request_id": order_data.request_id,
+        "request_number": request.get("request_number"),  # رقم الطلب المتسلسل
         "items": selected_items,
         "project_name": request["project_name"],
         "supplier_name": order_data.supplier_name,
