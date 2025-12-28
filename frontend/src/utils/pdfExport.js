@@ -270,16 +270,26 @@ export const exportRequestToPDF = (request) => {
 
 export const exportPurchaseOrderToPDF = (order) => {
   const items = Array.isArray(order.items) ? order.items : [];
-  const itemsRows = items.map((item, idx) => `
+  
+  // Calculate totals
+  const totalAmount = items.reduce((sum, item) => sum + (item.total_price || (item.unit_price || 0) * (item.quantity || 0)), 0);
+  
+  const itemsRows = items.map((item, idx) => {
+    const unitPrice = item.unit_price || 0;
+    const itemTotal = item.total_price || (unitPrice * (item.quantity || 0));
+    return `
     <tr style="background: ${idx % 2 === 0 ? '#f8fafc' : '#fff'};">
       <td style="text-align: center; width: 40px;">${idx + 1}</td>
       <td>${item.name || '-'}</td>
-      <td style="text-align: center; width: 80px;">${item.quantity || 0}</td>
-      <td style="text-align: center; width: 80px;">${item.unit || 'قطعة'}</td>
+      <td style="text-align: center; width: 70px;">${item.quantity || 0}</td>
+      <td style="text-align: center; width: 70px;">${item.unit || 'قطعة'}</td>
+      <td style="text-align: center; width: 90px;">${unitPrice > 0 ? unitPrice.toLocaleString('ar-SA') : '-'}</td>
+      <td style="text-align: center; width: 100px; font-weight: bold;">${itemTotal > 0 ? itemTotal.toLocaleString('ar-SA') : '-'}</td>
     </tr>
-  `).join('');
+  `}).join('');
 
   const requestNumber = order.request_number || order.request_id?.slice(0, 8).toUpperCase() || '-';
+  const expectedDelivery = order.expected_delivery_date ? formatDate(order.expected_delivery_date) : '-';
 
   const html = `
     <div style="border: 4px solid #ea580c; padding: 20px; margin-bottom: 25px; text-align: center;">
@@ -296,30 +306,38 @@ export const exportPurchaseOrderToPDF = (order) => {
         </tr>
         <tr style="border: none;">
           <td style="border: none; padding: 8px 0;"><span class="info-label">المورد:</span> <span class="badge badge-green">${order.supplier_name || '-'}</span></td>
-          <td style="border: none; padding: 8px 0;"><span class="info-label">مدير المشتريات:</span> ${order.manager_name || '-'}</td>
+          <td style="border: none; padding: 8px 0;"><span class="info-label">تاريخ التسليم المتوقع:</span> ${expectedDelivery}</td>
         </tr>
         <tr style="border: none;">
           <td style="border: none; padding: 8px 0;"><span class="info-label">المشرف:</span> ${order.supervisor_name || '-'}</td>
           <td style="border: none; padding: 8px 0;"><span class="info-label">المهندس:</span> ${order.engineer_name || '-'}</td>
         </tr>
         <tr style="border: none;">
+          <td style="border: none; padding: 8px 0;"><span class="info-label">مدير المشتريات:</span> ${order.manager_name || '-'}</td>
           <td style="border: none; padding: 8px 0;"><span class="info-label">الحالة:</span> <span class="badge badge-blue">${getOrderStatusTextAr(order.status)}</span></td>
-          <td style="border: none; padding: 8px 0;">${order.approved_at ? `<span class="info-label">تاريخ الاعتماد:</span> ${formatDate(order.approved_at)}` : ''}</td>
         </tr>
       </table>
     </div>
     
-    <div class="section-title">المواد</div>
+    <div class="section-title">المواد والأسعار</div>
     <table>
       <thead>
         <tr>
           <th style="width: 40px;">#</th>
           <th>اسم المادة</th>
-          <th style="width: 80px;">الكمية</th>
-          <th style="width: 80px;">الوحدة</th>
+          <th style="width: 70px;">الكمية</th>
+          <th style="width: 70px;">الوحدة</th>
+          <th style="width: 90px;">سعر الوحدة</th>
+          <th style="width: 100px;">الإجمالي</th>
         </tr>
       </thead>
       <tbody>${itemsRows}</tbody>
+      <tfoot>
+        <tr style="background: #fef3c7; font-weight: bold;">
+          <td colspan="5" style="text-align: left; padding: 12px;">المجموع الكلي</td>
+          <td style="text-align: center; font-size: 16px; color: #ea580c;">${totalAmount > 0 ? totalAmount.toLocaleString('ar-SA') + ' ر.س' : '-'}</td>
+        </tr>
+      </tfoot>
     </table>
     
     ${order.notes ? `
@@ -328,12 +346,21 @@ export const exportPurchaseOrderToPDF = (order) => {
       </div>
     ` : ''}
     
+    ${order.terms_conditions ? `
+      <div class="notes-box" style="margin-top: 15px; background: #f0f9ff; border-color: #bae6fd;">
+        <strong style="color: #0369a1;">الشروط والأحكام:</strong><br/>
+        <div style="margin-top: 8px; white-space: pre-line;">${order.terms_conditions}</div>
+      </div>
+    ` : ''}
+    
     <div class="signature-area">
       <div class="signature-box">
         <div class="signature-line">توقيع المورد</div>
+        <p style="font-size: 10px; color: #666; margin-top: 5px;">التاريخ: _______________</p>
       </div>
       <div class="signature-box">
         <div class="signature-line">توقيع مدير المشتريات</div>
+        <p style="font-size: 10px; color: #666; margin-top: 5px;">التاريخ: _______________</p>
       </div>
     </div>
     
