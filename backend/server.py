@@ -1080,8 +1080,11 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == UserRole.PROCUREMENT_MANAGER:
         query["manager_id"] = current_user["id"]
     elif current_user["role"] == UserRole.PRINTER:
-        # موظف الطباعة يرى فقط الأوامر المعتمدة
-        query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED]}
+        # موظف الطباعة يرى فقط الأوامر المعتمدة والمطبوعة والمشحونة
+        query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.SHIPPED]}
+    elif current_user["role"] in [UserRole.SUPERVISOR, UserRole.ENGINEER]:
+        # المشرف والمهندس يرون الأوامر المشحونة للتسليم
+        query["status"] = {"$in": [PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.PARTIALLY_DELIVERED, PurchaseOrderStatus.DELIVERED]}
     
     orders = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
@@ -1100,12 +1103,17 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
     # Process orders with batch-fetched data
     result = []
     for o in orders:
-        if "status" not in o:
-            o["status"] = PurchaseOrderStatus.APPROVED
-        if "approved_at" not in o:
-            o["approved_at"] = None
-        if "printed_at" not in o:
-            o["printed_at"] = None
+        # Set defaults for missing fields
+        o.setdefault("status", PurchaseOrderStatus.APPROVED)
+        o.setdefault("approved_at", None)
+        o.setdefault("printed_at", None)
+        o.setdefault("shipped_at", None)
+        o.setdefault("delivered_at", None)
+        o.setdefault("delivery_notes", None)
+        o.setdefault("total_amount", 0)
+        o.setdefault("supplier_id", None)
+        o.setdefault("terms_conditions", None)
+        o.setdefault("expected_delivery_date", None)
         
         # Use batch-fetched request data
         if "supervisor_name" not in o or "engineer_name" not in o or "request_number" not in o:
