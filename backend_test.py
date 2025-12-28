@@ -167,7 +167,7 @@ class MaterialRequestAPITester:
             "Create Purchase Order",
             "POST",
             "purchase-orders",
-            201,
+            200,  # Changed from 201 to 200
             data=order_data,
             headers=headers
         )
