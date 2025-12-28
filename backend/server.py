@@ -736,15 +736,17 @@ async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
         if "printed_at" not in o:
             o["printed_at"] = None
         
-        # Fetch supervisor and engineer names from original request if not present
-        if "supervisor_name" not in o or "engineer_name" not in o:
+        # Fetch supervisor and engineer names and request_number from original request if not present
+        if "supervisor_name" not in o or "engineer_name" not in o or "request_number" not in o:
             request = await db.material_requests.find_one({"id": o.get("request_id")}, {"_id": 0})
             if request:
                 o["supervisor_name"] = request.get("supervisor_name", "")
                 o["engineer_name"] = request.get("engineer_name", "")
+                o["request_number"] = request.get("request_number")
             else:
                 o["supervisor_name"] = o.get("supervisor_name", "")
                 o["engineer_name"] = o.get("engineer_name", "")
+                o["request_number"] = o.get("request_number")
         
         result.append(PurchaseOrderResponse(**o))
     
