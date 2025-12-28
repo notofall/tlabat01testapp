@@ -452,6 +452,219 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
     return [UserResponse(**u) for u in users]
 
+# ==================== BUDGET CATEGORIES ROUTES ====================
+
+@api_router.post("/budget-categories")
+async def create_budget_category(
+    category_data: BudgetCategoryCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """إنشاء تصنيف ميزانية جديد - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه إدارة التصنيفات")
+    
+    category_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    category_doc = {
+        "id": category_id,
+        "name": category_data.name,
+        "project_name": category_data.project_name,
+        "estimated_budget": category_data.estimated_budget,
+        "created_by": current_user["id"],
+        "created_by_name": current_user["name"],
+        "created_at": now
+    }
+    
+    await db.budget_categories.insert_one(category_doc)
+    
+    return {
+        **category_doc,
+        "actual_spent": 0,
+        "remaining": category_data.estimated_budget,
+        "variance_percentage": 0
+    }
+
+@api_router.get("/budget-categories")
+async def get_budget_categories(
+    project_name: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """الحصول على تصنيفات الميزانية مع المصروف الفعلي"""
+    query = {}
+    if project_name:
+        query["project_name"] = project_name
+    
+    categories = await db.budget_categories.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    
+    # Calculate actual spent for each category
+    result = []
+    for cat in categories:
+        # Get total spent from purchase orders in this category
+        pipeline = [
+            {"$match": {"category_id": cat["id"]}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}}
+        ]
+        spent_result = await db.purchase_orders.aggregate(pipeline).to_list(1)
+        actual_spent = spent_result[0]["total"] if spent_result else 0
+        
+        remaining = cat["estimated_budget"] - actual_spent
+        variance_percentage = ((actual_spent - cat["estimated_budget"]) / cat["estimated_budget"] * 100) if cat["estimated_budget"] > 0 else 0
+        
+        result.append({
+            **cat,
+            "actual_spent": actual_spent,
+            "remaining": remaining,
+            "variance_percentage": round(variance_percentage, 2)
+        })
+    
+    return result
+
+@api_router.get("/budget-categories/by-project")
+async def get_budget_categories_grouped(current_user: dict = Depends(get_current_user)):
+    """الحصول على التصنيفات مجمعة حسب المشروع"""
+    categories = await db.budget_categories.find({}, {"_id": 0}).sort("project_name", 1).to_list(500)
+    
+    # Group by project
+    projects = {}
+    for cat in categories:
+        project = cat["project_name"]
+        if project not in projects:
+            projects[project] = {
+                "project_name": project,
+                "total_estimated": 0,
+                "total_spent": 0,
+                "categories": []
+            }
+        
+        # Get actual spent
+        pipeline = [
+            {"$match": {"category_id": cat["id"]}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}}
+        ]
+        spent_result = await db.purchase_orders.aggregate(pipeline).to_list(1)
+        actual_spent = spent_result[0]["total"] if spent_result else 0
+        
+        cat["actual_spent"] = actual_spent
+        cat["remaining"] = cat["estimated_budget"] - actual_spent
+        
+        projects[project]["categories"].append(cat)
+        projects[project]["total_estimated"] += cat["estimated_budget"]
+        projects[project]["total_spent"] += actual_spent
+    
+    return list(projects.values())
+
+@api_router.put("/budget-categories/{category_id}")
+async def update_budget_category(
+    category_id: str,
+    update_data: BudgetCategoryUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """تحديث تصنيف ميزانية - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه إدارة التصنيفات")
+    
+    category = await db.budget_categories.find_one({"id": category_id}, {"_id": 0})
+    if not category:
+        raise HTTPException(status_code=404, detail="التصنيف غير موجود")
+    
+    update_fields = {}
+    if update_data.name is not None:
+        update_fields["name"] = update_data.name
+    if update_data.estimated_budget is not None:
+        update_fields["estimated_budget"] = update_data.estimated_budget
+    
+    if update_fields:
+        await db.budget_categories.update_one(
+            {"id": category_id},
+            {"$set": update_fields}
+        )
+    
+    return {"message": "تم تحديث التصنيف بنجاح"}
+
+@api_router.delete("/budget-categories/{category_id}")
+async def delete_budget_category(
+    category_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف تصنيف ميزانية - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه إدارة التصنيفات")
+    
+    # Check if any purchase orders use this category
+    po_count = await db.purchase_orders.count_documents({"category_id": category_id})
+    if po_count > 0:
+        raise HTTPException(status_code=400, detail=f"لا يمكن حذف التصنيف لوجود {po_count} أوامر شراء مرتبطة به")
+    
+    result = await db.budget_categories.delete_one({"id": category_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="التصنيف غير موجود")
+    
+    return {"message": "تم حذف التصنيف بنجاح"}
+
+@api_router.get("/budget-reports")
+async def get_budget_reports(
+    project_name: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """تقرير المقارنة بين الميزانية التقديرية والفعلية"""
+    query = {}
+    if project_name:
+        query["project_name"] = project_name
+    
+    categories = await db.budget_categories.find(query, {"_id": 0}).to_list(500)
+    
+    report = {
+        "total_estimated": 0,
+        "total_spent": 0,
+        "total_remaining": 0,
+        "categories": [],
+        "over_budget": [],  # التصنيفات التي تجاوزت الميزانية
+        "under_budget": []  # التصنيفات ضمن الميزانية
+    }
+    
+    for cat in categories:
+        # Get actual spent
+        pipeline = [
+            {"$match": {"category_id": cat["id"]}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}}
+        ]
+        spent_result = await db.purchase_orders.aggregate(pipeline).to_list(1)
+        actual_spent = spent_result[0]["total"] if spent_result else 0
+        
+        remaining = cat["estimated_budget"] - actual_spent
+        variance = actual_spent - cat["estimated_budget"]
+        variance_percentage = (variance / cat["estimated_budget"] * 100) if cat["estimated_budget"] > 0 else 0
+        
+        cat_report = {
+            "id": cat["id"],
+            "name": cat["name"],
+            "project_name": cat["project_name"],
+            "estimated_budget": cat["estimated_budget"],
+            "actual_spent": actual_spent,
+            "remaining": remaining,
+            "variance": variance,
+            "variance_percentage": round(variance_percentage, 2),
+            "status": "over_budget" if remaining < 0 else "under_budget"
+        }
+        
+        report["categories"].append(cat_report)
+        report["total_estimated"] += cat["estimated_budget"]
+        report["total_spent"] += actual_spent
+        
+        if remaining < 0:
+            report["over_budget"].append(cat_report)
+        else:
+            report["under_budget"].append(cat_report)
+    
+    report["total_remaining"] = report["total_estimated"] - report["total_spent"]
+    report["overall_variance_percentage"] = round(
+        ((report["total_spent"] - report["total_estimated"]) / report["total_estimated"] * 100) 
+        if report["total_estimated"] > 0 else 0, 2
+    )
+    
+    return report
+
 # ==================== SUPPLIERS ROUTES ====================
 
 @api_router.post("/suppliers", response_model=SupplierResponse)
