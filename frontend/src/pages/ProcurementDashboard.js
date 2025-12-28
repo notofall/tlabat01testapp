@@ -956,7 +956,7 @@ const ProcurementDashboard = () => {
                     >
                       <option value="">-- اختر التصنيف (اختياري) --</option>
                       {budgetCategories
-                        .filter(c => c.project_name === selectedRequest?.project_name)
+                        .filter(c => c.project_id === selectedRequest?.project_id || c.project_name === selectedRequest?.project_name)
                         .map(c => (
                           <option key={c.id} value={c.id}>
                             {c.name} - متبقي: {(c.remaining || 0).toLocaleString('ar-SA')} ر.س
