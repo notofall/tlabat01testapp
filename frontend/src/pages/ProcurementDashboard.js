@@ -62,19 +62,52 @@ const ProcurementDashboard = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  // Apply date filter
+  // Apply filters
   const applyFilter = () => {
     let filtered = [...allOrders];
+    
+    // Filter by order ID
+    if (filterOrderId.trim()) {
+      filtered = filtered.filter(o => 
+        o.id?.toLowerCase().includes(filterOrderId.toLowerCase().trim())
+      );
+    }
+    
+    // Filter by request ID
+    if (filterRequestId.trim()) {
+      filtered = filtered.filter(o => 
+        o.request_id?.toLowerCase().includes(filterRequestId.toLowerCase().trim())
+      );
+    }
+    
+    // Filter by project
+    if (filterProject.trim()) {
+      filtered = filtered.filter(o => 
+        o.project_name?.toLowerCase().includes(filterProject.toLowerCase().trim())
+      );
+    }
+    
+    // Filter by supplier
+    if (filterSupplier.trim()) {
+      filtered = filtered.filter(o => 
+        o.supplier_name?.toLowerCase().includes(filterSupplier.toLowerCase().trim())
+      );
+    }
+    
+    // Filter by start date
     if (filterStartDate) {
       const start = new Date(filterStartDate);
       start.setHours(0, 0, 0, 0);
       filtered = filtered.filter(o => new Date(o.created_at) >= start);
     }
+    
+    // Filter by end date
     if (filterEndDate) {
       const end = new Date(filterEndDate);
       end.setHours(23, 59, 59, 999);
       filtered = filtered.filter(o => new Date(o.created_at) <= end);
     }
+    
     setFilteredOrders(filtered);
     toast.success(`تم عرض ${filtered.length} أمر شراء`);
   };
@@ -82,6 +115,10 @@ const ProcurementDashboard = () => {
   const clearFilter = () => {
     setFilterStartDate("");
     setFilterEndDate("");
+    setFilterOrderId("");
+    setFilterRequestId("");
+    setFilterProject("");
+    setFilterSupplier("");
     setFilteredOrders(allOrders);
   };
 
