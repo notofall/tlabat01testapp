@@ -158,6 +158,7 @@ export const exportPurchaseOrderToPDF = async (order) => {
       <div style="border-bottom: 3px solid #ea580c; border-top: 3px solid #ea580c; padding: 15px 0; margin-bottom: 20px;">
         <h1 style="color: #ea580c; text-align: center; font-size: 30px; margin: 0;">أمر شراء</h1>
         <p style="text-align: center; color: #1e293b; font-size: 16px; margin: 5px 0;">رقم الأمر: ${order.id?.slice(0, 8).toUpperCase() || 'N/A'}</p>
+        <p style="text-align: center; color: #64748b; font-size: 14px; margin: 3px 0;">رقم الطلب: ${order.request_id?.slice(0, 8).toUpperCase() || 'N/A'}</p>
       </div>
       
       <!-- Order Info -->
