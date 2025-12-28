@@ -486,8 +486,18 @@ const SupervisorDashboard = () => {
                   <hr className="border-slate-200" />
 
                   <div>
-                    <Label className="text-sm font-medium">اسم المشروع</Label>
-                    <Input placeholder="مثال: مشروع برج الرياض" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="h-11 mt-1" />
+                    <Label className="text-sm font-medium">المشروع</Label>
+                    <div className="flex gap-2 mt-1">
+                      <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="flex-1 h-11 border rounded-lg bg-white px-3">
+                        <option value="">اختر المشروع</option>
+                        {projects.filter(p => p.status === 'active').map((proj) => (
+                          <option key={proj.id} value={proj.id}>{proj.name} - {proj.owner_name}</option>
+                        ))}
+                      </select>
+                      <Button type="button" variant="outline" onClick={() => setProjectDialogOpen(true)} className="h-11 px-3">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div>
