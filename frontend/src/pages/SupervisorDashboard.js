@@ -73,10 +73,16 @@ const SupervisorDashboard = () => {
     if (!newItemName.trim()) { toast.error("أدخل اسم المادة"); return; }
     if (!newItemQty || parseInt(newItemQty) <= 0) { toast.error("أدخل الكمية"); return; }
     
-    setItems([...items, { name: newItemName.trim(), quantity: newItemQty, unit: newItemUnit }]);
+    setItems([...items, { 
+      name: newItemName.trim(), 
+      quantity: newItemQty, 
+      unit: newItemUnit,
+      estimated_price: newItemEstPrice ? parseFloat(newItemEstPrice) : null
+    }]);
     setNewItemName("");
     setNewItemQty("");
     setNewItemUnit("قطعة");
+    setNewItemEstPrice("");
     toast.success("تم إضافة الصنف");
   };
 
@@ -87,10 +93,16 @@ const SupervisorDashboard = () => {
     if (!editNewItemName.trim()) { toast.error("أدخل اسم المادة"); return; }
     if (!editNewItemQty || parseInt(editNewItemQty) <= 0) { toast.error("أدخل الكمية"); return; }
     
-    setEditItems([...editItems, { name: editNewItemName.trim(), quantity: editNewItemQty, unit: editNewItemUnit }]);
+    setEditItems([...editItems, { 
+      name: editNewItemName.trim(), 
+      quantity: editNewItemQty, 
+      unit: editNewItemUnit,
+      estimated_price: editNewItemEstPrice ? parseFloat(editNewItemEstPrice) : null
+    }]);
     setEditNewItemName("");
     setEditNewItemQty("");
     setEditNewItemUnit("قطعة");
+    setEditNewItemEstPrice("");
   };
 
   const removeEditItem = (index) => setEditItems(editItems.filter((_, i) => i !== index));
@@ -100,9 +112,11 @@ const SupervisorDashboard = () => {
     setNewItemName("");
     setNewItemQty("");
     setNewItemUnit("قطعة");
+    setNewItemEstPrice("");
     setProjectName("");
     setReason("");
     setEngineerId("");
+    setExpectedDeliveryDate("");
   };
 
   const handleSubmit = async (e) => {
@@ -113,8 +127,16 @@ const SupervisorDashboard = () => {
     setSubmitting(true);
     try {
       await axios.post(`${API_URL}/requests`, {
-        items: items.map(item => ({ name: item.name, quantity: parseInt(item.quantity), unit: item.unit })),
-        project_name: projectName, reason, engineer_id: engineerId,
+        items: items.map(item => ({ 
+          name: item.name, 
+          quantity: parseInt(item.quantity), 
+          unit: item.unit,
+          estimated_price: item.estimated_price
+        })),
+        project_name: projectName, 
+        reason, 
+        engineer_id: engineerId,
+        expected_delivery_date: expectedDeliveryDate || null
       }, getAuthHeaders());
       toast.success("تم إنشاء الطلب بنجاح");
       setDialogOpen(false);
