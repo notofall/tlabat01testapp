@@ -292,6 +292,7 @@ const SupervisorDashboard = () => {
       approved_by_engineer: { label: "معتمد", color: "bg-green-100 text-green-800 border-green-300" },
       rejected_by_engineer: { label: "مرفوض", color: "bg-red-100 text-red-800 border-red-300" },
       purchase_order_issued: { label: "تم إصدار أمر الشراء", color: "bg-blue-100 text-blue-800 border-blue-300" },
+      partially_ordered: { label: "جاري الإصدار", color: "bg-indigo-100 text-indigo-800 border-indigo-300" },
     };
     const statusInfo = statusMap[status] || { label: status, color: "bg-slate-100 text-slate-800" };
     return <Badge className={`${statusInfo.color} border text-xs`}>{statusInfo.label}</Badge>;
