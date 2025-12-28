@@ -62,6 +62,11 @@ async def create_indexes():
         await db.delivery_records.create_index("order_id")
         await db.delivery_records.create_index("delivery_date")
         
+        # Budget categories indexes
+        await db.budget_categories.create_index("id", unique=True)
+        await db.budget_categories.create_index("project_name")
+        await db.budget_categories.create_index("created_by")
+        
         print("✅ Database indexes created successfully")
     except Exception as e:
         print(f"⚠️ Index creation warning: {e}")
