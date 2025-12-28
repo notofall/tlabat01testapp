@@ -44,12 +44,19 @@ class UserRole:
     SUPERVISOR = "supervisor"
     ENGINEER = "engineer"
     PROCUREMENT_MANAGER = "procurement_manager"
+    PRINTER = "printer"  # موظف الطباعة
 
 class RequestStatus:
     PENDING_ENGINEER = "pending_engineer"
     APPROVED_BY_ENGINEER = "approved_by_engineer"
     REJECTED_BY_ENGINEER = "rejected_by_engineer"
     PURCHASE_ORDER_ISSUED = "purchase_order_issued"
+    PARTIALLY_ORDERED = "partially_ordered"  # تم إصدار بعض أوامر الشراء
+
+class PurchaseOrderStatus:
+    PENDING_APPROVAL = "pending_approval"  # بانتظار اعتماد مدير المشتريات
+    APPROVED = "approved"  # معتمد - جاهز للطباعة
+    PRINTED = "printed"  # تمت الطباعة
 
 # User Models
 class UserCreate(BaseModel):
