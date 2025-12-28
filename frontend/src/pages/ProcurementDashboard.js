@@ -881,74 +881,103 @@ const ProcurementDashboard = () => {
 
           <Card className="shadow-sm">
             <CardContent className="p-0">
-              {!approvedOrders.length ? (
-                <div className="text-center py-8"><FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" /><p className="text-slate-500 text-sm">لا توجد أوامر شراء معتمدة</p></div>
-              ) : (
-                <>
-                  {/* Mobile */}
-                  <div className="sm:hidden divide-y">
-                    {approvedOrders.map((order) => (
-                      <div key={order.id} className="p-3 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-mono text-orange-600 font-bold text-sm">{order.id?.slice(0, 8).toUpperCase()}</p>
-                            <p className="text-xs text-slate-500">{order.project_name}</p>
+              {(() => {
+                // Filter orders based on view mode
+                const displayOrders = filteredOrders.filter(order => {
+                  if (ordersViewMode === "all") return true;
+                  if (ordersViewMode === "approved") return ["approved", "printed", "pending_approval"].includes(order.status);
+                  if (ordersViewMode === "shipped") return ["shipped", "partially_delivered"].includes(order.status);
+                  if (ordersViewMode === "delivered") return order.status === "delivered";
+                  return true;
+                });
+                
+                if (!displayOrders.length) {
+                  return (
+                    <div className="text-center py-8">
+                      <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">لا توجد أوامر شراء</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <>
+                    {/* Mobile */}
+                    <div className="sm:hidden divide-y">
+                      {displayOrders.map((order) => (
+                        <div key={order.id} className={`p-3 space-y-2 ${order.status === "delivered" ? "bg-emerald-50/50" : ""}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-mono text-orange-600 font-bold text-sm">{order.id?.slice(0, 8).toUpperCase()}</p>
+                              <p className="text-xs text-slate-500">{order.project_name}</p>
+                            </div>
+                            {getOrderStatusBadge(order.status)}
                           </div>
-                          {getOrderStatusBadge(order.status)}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div><span className="text-slate-400">رقم الطلب:</span> <span className="font-bold text-blue-600">{order.request_number || order.request_id?.slice(0, 8).toUpperCase()}</span></div>
-                          <div><span className="text-slate-400">المورد:</span> {order.supplier_name}</div>
-                          {order.total_amount > 0 && (
-                            <div className="col-span-2"><span className="text-slate-400">المبلغ:</span> <span className="font-bold text-emerald-600">{order.total_amount.toLocaleString('ar-SA')} ر.س</span></div>
-                          )}
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => openEditOrderDialog(order)} className="h-7 w-7 p-0"><Edit className="w-3 h-3 text-blue-600" /></Button>
-                            <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-7 w-7 p-0"><Download className="w-3 h-3 text-green-600" /></Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Desktop */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <Table>
-                      <TableHeader><TableRow className="bg-slate-50">
-                        <TableHead className="text-right">رقم أمر الشراء</TableHead>
-                        <TableHead className="text-right">رقم الطلب</TableHead>
-                        <TableHead className="text-right">المشروع</TableHead>
-                        <TableHead className="text-right">المورد</TableHead>
-                        <TableHead className="text-right">المبلغ</TableHead>
-                        <TableHead className="text-right">الحالة</TableHead>
-                        <TableHead className="text-right">الإجراءات</TableHead>
-                      </TableRow></TableHeader>
-                      <TableBody>
-                        {approvedOrders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-mono text-orange-600 font-bold">{order.id?.slice(0, 8).toUpperCase()}</TableCell>
-                            <TableCell className="font-bold text-blue-600">{order.request_number || order.request_id?.slice(0, 8).toUpperCase()}</TableCell>
-                            <TableCell>{order.project_name}</TableCell>
-                            <TableCell><Badge className="bg-green-50 text-green-800 border-green-200 border">{order.supplier_name}</Badge></TableCell>
-                            <TableCell className="font-bold text-emerald-600">{order.total_amount > 0 ? `${order.total_amount.toLocaleString('ar-SA')} ر.س` : '-'}</TableCell>
-                            <TableCell>{getOrderStatusBadge(order.status)}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                                <Button size="sm" variant="ghost" onClick={() => openEditOrderDialog(order)} className="h-8 w-8 p-0"><Edit className="w-4 h-4 text-blue-600" /></Button>
-                                <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div><span className="text-slate-400">المورد:</span> {order.supplier_name}</div>
+                            {order.total_amount > 0 && (
+                              <div><span className="text-slate-400">المبلغ:</span> <span className="font-bold text-emerald-600">{order.total_amount.toLocaleString('ar-SA')} ر.س</span></div>
+                            )}
+                            {order.supplier_receipt_number && (
+                              <div className="col-span-2">
+                                <span className="text-slate-400">رقم استلام المورد:</span> 
+                                <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mr-1">{order.supplier_receipt_number}</span>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
+                            )}
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-400">{formatDate(order.created_at)}</span>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
+                              <Button size="sm" variant="ghost" onClick={() => openEditOrderDialog(order)} className="h-7 w-7 p-0"><Edit className="w-3 h-3 text-blue-600" /></Button>
+                              <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-7 w-7 p-0"><Download className="w-3 h-3 text-green-600" /></Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <Table>
+                        <TableHeader><TableRow className="bg-slate-50">
+                          <TableHead className="text-right">رقم الأمر</TableHead>
+                          <TableHead className="text-right">المشروع</TableHead>
+                          <TableHead className="text-right">المورد</TableHead>
+                          <TableHead className="text-center">المبلغ</TableHead>
+                          <TableHead className="text-center">رقم استلام المورد</TableHead>
+                          <TableHead className="text-center">الحالة</TableHead>
+                          <TableHead className="text-center">الإجراءات</TableHead>
+                        </TableRow></TableHeader>
+                        <TableBody>
+                          {displayOrders.map((order) => (
+                            <TableRow key={order.id} className={order.status === "delivered" ? "bg-emerald-50/30" : ""}>
+                              <TableCell className="font-mono text-orange-600 font-bold">{order.id?.slice(0, 8).toUpperCase()}</TableCell>
+                              <TableCell>{order.project_name}</TableCell>
+                              <TableCell>{order.supplier_name}</TableCell>
+                              <TableCell className="text-center font-bold text-emerald-600">{order.total_amount > 0 ? `${order.total_amount.toLocaleString('ar-SA')} ر.س` : '-'}</TableCell>
+                              <TableCell className="text-center">
+                                {order.supplier_receipt_number ? (
+                                  <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{order.supplier_receipt_number}</span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">{getOrderStatusBadge(order.status)}</TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex gap-1 justify-center">
+                                  <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
+                                  <Button size="sm" variant="ghost" onClick={() => openEditOrderDialog(order)} className="h-8 w-8 p-0"><Edit className="w-4 h-4 text-blue-600" /></Button>
+                                  <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>
