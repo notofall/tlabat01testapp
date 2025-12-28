@@ -826,25 +826,216 @@ const ProcurementDashboard = () => {
               </div>
               {remainingItems.length > 0 && (
                 <>
-                  <div>
-                    <Label className="text-sm">اسم المورد</Label>
-                    <Input placeholder="مثال: شركة الحديد" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="h-10 mt-1" />
+                  {/* Supplier Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">المورد</Label>
+                    <div className="flex gap-2">
+                      <select 
+                        value={selectedSupplierId}
+                        onChange={(e) => {
+                          setSelectedSupplierId(e.target.value);
+                          const supplier = suppliers.find(s => s.id === e.target.value);
+                          if (supplier) setSupplierName(supplier.name);
+                        }}
+                        className="flex-1 h-10 border rounded-lg bg-white px-3 text-sm"
+                      >
+                        <option value="">-- اختر من القائمة --</option>
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSupplierDialogOpen(true)} className="h-10 px-3">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Input 
+                      placeholder="أو اكتب اسم المورد يدوياً" 
+                      value={supplierName} 
+                      onChange={(e) => { setSupplierName(e.target.value); setSelectedSupplierId(""); }} 
+                      className="h-10" 
+                    />
                   </div>
+
+                  {/* Item Prices */}
+                  {selectedItemIndices.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">أسعار الأصناف المختارة</Label>
+                      <div className="space-y-2 bg-slate-50 p-3 rounded-lg max-h-40 overflow-y-auto">
+                        {selectedItemIndices.map(idx => {
+                          const item = remainingItems.find(i => i.index === idx);
+                          if (!item) return null;
+                          return (
+                            <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded border">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{item.name}</p>
+                                <p className="text-xs text-slate-500">{item.quantity} {item.unit}</p>
+                              </div>
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                step="0.01"
+                                placeholder="السعر"
+                                value={itemPrices[idx] || ""}
+                                onChange={(e) => setItemPrices({...itemPrices, [idx]: e.target.value})}
+                                className="w-24 h-8 text-sm text-center"
+                              />
+                              <span className="text-xs text-slate-500">ر.س</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between items-center bg-orange-50 p-2 rounded-lg">
+                        <span className="text-sm font-medium">الإجمالي:</span>
+                        <span className="text-lg font-bold text-orange-600">{formatCurrency(calculateTotal())}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expected Delivery Date */}
+                  <div>
+                    <Label className="text-sm">تاريخ التسليم المتوقع</Label>
+                    <Input type="date" value={expectedDeliveryDate} onChange={(e) => setExpectedDeliveryDate(e.target.value)} className="h-10 mt-1" />
+                  </div>
+
+                  {/* Notes & Terms */}
                   <div>
                     <Label className="text-sm">ملاحظات (اختياري)</Label>
                     <Textarea placeholder="أي ملاحظات..." value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} rows={2} className="mt-1" />
                   </div>
+                  <div>
+                    <Label className="text-sm">الشروط والأحكام (اختياري)</Label>
+                    <Textarea placeholder="شروط الدفع والتسليم..." value={termsConditions} onChange={(e) => setTermsConditions(e.target.value)} rows={2} className="mt-1" />
+                  </div>
+
                   <Button 
                     className="w-full h-11 bg-orange-600 hover:bg-orange-700" 
                     onClick={handleCreateOrder} 
                     disabled={submitting || selectedItemIndices.length === 0}
                   >
-                    {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />إصدار أمر شراء ({selectedItemIndices.length} صنف)</>}
+                    {submitting ? "جاري الإصدار..." : <><ShoppingCart className="w-4 h-4 ml-2" />إصدار أمر شراء ({selectedItemIndices.length} صنف) - {formatCurrency(calculateTotal())}</>}
                   </Button>
                 </>
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Suppliers List Dialog */}
+      <Dialog open={suppliersListDialogOpen} onOpenChange={setSuppliersListDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] overflow-y-auto p-4" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex justify-between items-center">
+              <span>إدارة الموردين</span>
+              <Button size="sm" onClick={() => { setSupplierDialogOpen(true); setSuppliersListDialogOpen(false); }} className="bg-orange-600 hover:bg-orange-700">
+                <Plus className="w-4 h-4 ml-1" />إضافة مورد
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {suppliers.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p>لا يوجد موردين مسجلين</p>
+                <Button size="sm" className="mt-3 bg-orange-600" onClick={() => { setSupplierDialogOpen(true); setSuppliersListDialogOpen(false); }}>
+                  <Plus className="w-4 h-4 ml-1" />إضافة مورد جديد
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {suppliers.map(supplier => (
+                  <div key={supplier.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{supplier.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {supplier.contact_person && <span>{supplier.contact_person} • </span>}
+                        {supplier.phone && <span>{supplier.phone}</span>}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => { setEditingSupplier({...supplier}); setSuppliersListDialogOpen(false); }} className="h-8 w-8 p-0">
+                        <Edit className="w-4 h-4 text-blue-600" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteSupplier(supplier.id)} className="h-8 w-8 p-0">
+                        <X className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Supplier Dialog */}
+      <Dialog open={supplierDialogOpen || editingSupplier !== null} onOpenChange={(open) => { setSupplierDialogOpen(open); if (!open) setEditingSupplier(null); }}>
+        <DialogContent className="w-[95vw] max-w-md p-4" dir="rtl">
+          <DialogHeader><DialogTitle className="text-center">{editingSupplier ? "تعديل المورد" : "إضافة مورد جديد"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label className="text-sm">اسم المورد *</Label>
+              <Input 
+                placeholder="اسم الشركة أو المورد" 
+                value={editingSupplier ? editingSupplier.name : newSupplier.name} 
+                onChange={(e) => editingSupplier ? setEditingSupplier({...editingSupplier, name: e.target.value}) : setNewSupplier({...newSupplier, name: e.target.value})} 
+                className="h-10 mt-1" 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-sm">جهة الاتصال</Label>
+                <Input 
+                  placeholder="اسم الشخص" 
+                  value={editingSupplier ? editingSupplier.contact_person : newSupplier.contact_person} 
+                  onChange={(e) => editingSupplier ? setEditingSupplier({...editingSupplier, contact_person: e.target.value}) : setNewSupplier({...newSupplier, contact_person: e.target.value})} 
+                  className="h-10 mt-1" 
+                />
+              </div>
+              <div>
+                <Label className="text-sm">رقم الهاتف</Label>
+                <Input 
+                  placeholder="05xxxxxxxx" 
+                  value={editingSupplier ? editingSupplier.phone : newSupplier.phone} 
+                  onChange={(e) => editingSupplier ? setEditingSupplier({...editingSupplier, phone: e.target.value}) : setNewSupplier({...newSupplier, phone: e.target.value})} 
+                  className="h-10 mt-1" 
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">البريد الإلكتروني</Label>
+              <Input 
+                type="email"
+                placeholder="email@example.com" 
+                value={editingSupplier ? editingSupplier.email : newSupplier.email} 
+                onChange={(e) => editingSupplier ? setEditingSupplier({...editingSupplier, email: e.target.value}) : setNewSupplier({...newSupplier, email: e.target.value})} 
+                className="h-10 mt-1" 
+              />
+            </div>
+            <div>
+              <Label className="text-sm">العنوان</Label>
+              <Input 
+                placeholder="المدينة - الحي" 
+                value={editingSupplier ? editingSupplier.address : newSupplier.address} 
+                onChange={(e) => editingSupplier ? setEditingSupplier({...editingSupplier, address: e.target.value}) : setNewSupplier({...newSupplier, address: e.target.value})} 
+                className="h-10 mt-1" 
+              />
+            </div>
+            <div>
+              <Label className="text-sm">ملاحظات</Label>
+              <Textarea 
+                placeholder="ملاحظات إضافية..." 
+                value={editingSupplier ? editingSupplier.notes : newSupplier.notes} 
+                onChange={(e) => editingSupplier ? setEditingSupplier({...editingSupplier, notes: e.target.value}) : setNewSupplier({...newSupplier, notes: e.target.value})} 
+                rows={2} 
+                className="mt-1" 
+              />
+            </div>
+            <Button 
+              className="w-full h-11 bg-orange-600 hover:bg-orange-700" 
+              onClick={editingSupplier ? handleUpdateSupplier : handleCreateSupplier}
+            >
+              {editingSupplier ? "تحديث المورد" : "إضافة المورد"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
