@@ -28,7 +28,7 @@ const EngineerDashboard = () => {
     try {
       const [requestsRes, statsRes] = await Promise.all([
         axios.get(`${API_URL}/requests`, getAuthHeaders()),
-        axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
+        axios.get(`${API_URL}/v2/dashboard/stats`, getAuthHeaders()),
       ]);
       setRequests(requestsRes.data);
       setStats(statsRes.data);

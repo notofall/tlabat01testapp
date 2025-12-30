@@ -25,7 +25,7 @@ const PrinterDashboard = () => {
     try {
       const [ordersRes, statsRes] = await Promise.all([
         axios.get(`${API_URL}/purchase-orders`, getAuthHeaders()),
-        axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
+        axios.get(`${API_URL}/v2/dashboard/stats`, getAuthHeaders()),
       ]);
       setOrders(ordersRes.data);
       setStats(statsRes.data);

@@ -67,7 +67,7 @@ const SupervisorDashboard = () => {
       const [requestsRes, engineersRes, statsRes, deliveriesRes, projectsRes] = await Promise.all([
         axios.get(`${API_URL}/requests`, getAuthHeaders()),
         axios.get(`${API_URL}/users/engineers`, getAuthHeaders()),
-        axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
+        axios.get(`${API_URL}/v2/dashboard/stats`, getAuthHeaders()),
         axios.get(`${API_URL}/purchase-orders/pending-delivery`, getAuthHeaders()),
         axios.get(`${API_URL}/projects`, getAuthHeaders()),
       ]);
