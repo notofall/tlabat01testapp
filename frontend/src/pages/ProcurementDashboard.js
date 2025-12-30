@@ -164,16 +164,16 @@ const ProcurementDashboard = () => {
     let result = [...requests];
     
     // Filter by view mode
-    if (viewMode === "approved") {
+    if (requestViewMode === "approved") {
       result = result.filter(r => r.status === "approved_by_engineer" || r.status === "partially_ordered");
-    } else if (viewMode === "pending") {
+    } else if (requestViewMode === "pending") {
       result = result.filter(r => r.status === "pending_engineer");
-    } else if (viewMode === "ordered") {
+    } else if (requestViewMode === "ordered") {
       result = result.filter(r => r.status === "purchase_order_issued");
     }
     
     return result;
-  }, [requests, viewMode]);
+  }, [requests, requestViewMode]);
 
   // Apply filters
   const applyFilter = () => {
