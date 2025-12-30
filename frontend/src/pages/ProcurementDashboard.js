@@ -709,6 +709,7 @@ const ProcurementDashboard = () => {
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Requests Section - Improved UI */}
         <div className="mb-6">
@@ -716,6 +717,7 @@ const ProcurementDashboard = () => {
             <h2 className="text-lg font-bold flex items-center gap-2">
               <FileText className="w-5 h-5 text-slate-700" />
               الطلبات
+              {refreshing && <Loader2 className="w-4 h-4 animate-spin text-orange-500" />}
             </h2>
             {/* Filter Buttons */}
             <div className="flex flex-wrap gap-2">
