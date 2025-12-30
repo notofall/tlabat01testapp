@@ -2729,6 +2729,375 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     
     return stats
 
+# ==================== HIGH PERFORMANCE PAGINATED APIs ====================
+# These APIs support pagination, filtering, and are optimized for 20+ concurrent users
+
+class PaginatedResponse(BaseModel):
+    items: List[dict]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+
+@api_router.get("/v2/requests")
+async def get_requests_paginated(
+    page: int = 1,
+    page_size: int = 20,
+    status: Optional[str] = None,
+    project_id: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Paginated requests API - optimized for high load
+    - Supports filtering by status, project
+    - Supports text search
+    - Server-side pagination
+    """
+    query = {}
+    
+    # Role-based filtering
+    if current_user["role"] == UserRole.SUPERVISOR:
+        query["supervisor_id"] = current_user["id"]
+    elif current_user["role"] == UserRole.ENGINEER:
+        query["engineer_id"] = current_user["id"]
+    
+    # Optional filters
+    if status:
+        if status == "approved":
+            query["status"] = {"$in": [RequestStatus.APPROVED_BY_ENGINEER, RequestStatus.PARTIALLY_ORDERED]}
+        elif status == "pending":
+            query["status"] = RequestStatus.PENDING_ENGINEER
+        elif status == "ordered":
+            query["status"] = RequestStatus.PURCHASE_ORDER_ISSUED
+        else:
+            query["status"] = status
+    
+    if project_id:
+        query["project_id"] = project_id
+    
+    if search:
+        query["$or"] = [
+            {"request_number": {"$regex": search, "$options": "i"}},
+            {"items.name": {"$regex": search, "$options": "i"}},
+            {"project_name": {"$regex": search, "$options": "i"}},
+            {"supervisor_name": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Get total count
+    total = await db.material_requests.count_documents(query)
+    
+    # Calculate pagination
+    page_size = min(page_size, 100)  # Max 100 per page
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    skip = (page - 1) * page_size
+    
+    # Sort direction
+    sort_dir = -1 if sort_order == "desc" else 1
+    
+    # Fetch paginated data
+    requests = await db.material_requests.find(
+        query, 
+        {"_id": 0}
+    ).sort(sort_by, sort_dir).skip(skip).limit(page_size).to_list(page_size)
+    
+    return {
+        "items": requests,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1
+    }
+
+@api_router.get("/v2/purchase-orders")
+async def get_purchase_orders_paginated(
+    page: int = 1,
+    page_size: int = 20,
+    status: Optional[str] = None,
+    project_name: Optional[str] = None,
+    supplier_name: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Paginated purchase orders API - optimized for high load
+    - Supports filtering by status, project, supplier
+    - Supports comprehensive search
+    - Server-side pagination with batch fetching
+    """
+    query = {}
+    
+    # Role-based filtering
+    if current_user["role"] == UserRole.PROCUREMENT_MANAGER:
+        query["manager_id"] = current_user["id"]
+    elif current_user["role"] == UserRole.PRINTER:
+        query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.SHIPPED]}
+    
+    # Optional filters
+    if status:
+        if status == "approved":
+            query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.PENDING_APPROVAL]}
+        elif status == "shipped":
+            query["status"] = {"$in": [PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.PARTIALLY_DELIVERED]}
+        elif status == "delivered":
+            query["status"] = PurchaseOrderStatus.DELIVERED
+        else:
+            query["status"] = status
+    
+    if project_name:
+        query["project_name"] = {"$regex": project_name, "$options": "i"}
+    
+    if supplier_name:
+        query["supplier_name"] = {"$regex": supplier_name, "$options": "i"}
+    
+    if search:
+        query["$or"] = [
+            {"id": {"$regex": search, "$options": "i"}},
+            {"request_id": {"$regex": search, "$options": "i"}},
+            {"project_name": {"$regex": search, "$options": "i"}},
+            {"supplier_name": {"$regex": search, "$options": "i"}},
+            {"supplier_receipt_number": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Get total count
+    total = await db.purchase_orders.count_documents(query)
+    
+    # Calculate pagination
+    page_size = min(page_size, 100)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    skip = (page - 1) * page_size
+    
+    # Sort direction
+    sort_dir = -1 if sort_order == "desc" else 1
+    
+    # Fetch paginated data
+    orders = await db.purchase_orders.find(
+        query, 
+        {"_id": 0}
+    ).sort(sort_by, sort_dir).skip(skip).limit(page_size).to_list(page_size)
+    
+    # Batch fetch related data
+    request_ids = list(set([o.get("request_id") for o in orders if o.get("request_id")]))
+    category_ids = list(set([o.get("category_id") for o in orders if o.get("category_id")]))
+    
+    requests_map = {}
+    if request_ids:
+        requests_list = await db.material_requests.find(
+            {"id": {"$in": request_ids}}, 
+            {"_id": 0, "id": 1, "supervisor_name": 1, "engineer_name": 1, "request_number": 1}
+        ).to_list(None)
+        requests_map = {r["id"]: r for r in requests_list}
+    
+    categories_map = {}
+    if category_ids:
+        categories_list = await db.budget_categories.find(
+            {"id": {"$in": category_ids}},
+            {"_id": 0, "id": 1, "name": 1}
+        ).to_list(None)
+        categories_map = {c["id"]: c["name"] for c in categories_list}
+    
+    # Process orders
+    result = []
+    for o in orders:
+        o.setdefault("status", PurchaseOrderStatus.APPROVED)
+        o.setdefault("total_amount", 0)
+        o["category_name"] = categories_map.get(o.get("category_id"), None)
+        
+        if "supervisor_name" not in o or "engineer_name" not in o:
+            request = requests_map.get(o.get("request_id"), {})
+            o["supervisor_name"] = request.get("supervisor_name", o.get("supervisor_name", ""))
+            o["engineer_name"] = request.get("engineer_name", o.get("engineer_name", ""))
+            o["request_number"] = request.get("request_number", o.get("request_number"))
+        
+        result.append(o)
+    
+    return {
+        "items": result,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1
+    }
+
+@api_router.get("/v2/dashboard/stats")
+async def get_dashboard_stats_optimized(current_user: dict = Depends(get_current_user)):
+    """
+    Optimized dashboard stats using aggregation pipelines
+    Much faster than multiple count queries for high load
+    """
+    stats = {}
+    
+    if current_user["role"] == UserRole.SUPERVISOR:
+        # Use aggregation for all counts in one query
+        pipeline = [
+            {"$match": {"supervisor_id": current_user["id"]}},
+            {"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }}
+        ]
+        status_counts = await db.material_requests.aggregate(pipeline).to_list(None)
+        status_map = {s["_id"]: s["count"] for s in status_counts}
+        
+        stats = {
+            "total_requests": sum(status_map.values()),
+            "pending": status_map.get(RequestStatus.PENDING_ENGINEER, 0),
+            "approved": status_map.get(RequestStatus.APPROVED_BY_ENGINEER, 0) + status_map.get(RequestStatus.PARTIALLY_ORDERED, 0),
+            "ordered": status_map.get(RequestStatus.PURCHASE_ORDER_ISSUED, 0)
+        }
+        
+        # Pending deliveries
+        pending_delivery = await db.purchase_orders.count_documents({
+            "supervisor_id": current_user["id"],
+            "status": {"$in": [PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.PARTIALLY_DELIVERED]}
+        })
+        stats["pending_delivery"] = pending_delivery
+        
+    elif current_user["role"] == UserRole.ENGINEER:
+        pipeline = [
+            {"$match": {"engineer_id": current_user["id"]}},
+            {"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }}
+        ]
+        status_counts = await db.material_requests.aggregate(pipeline).to_list(None)
+        status_map = {s["_id"]: s["count"] for s in status_counts}
+        
+        stats = {
+            "pending_approval": status_map.get(RequestStatus.PENDING_ENGINEER, 0),
+            "approved": status_map.get(RequestStatus.APPROVED_BY_ENGINEER, 0),
+            "total_requests": sum(status_map.values())
+        }
+        
+    elif current_user["role"] == UserRole.PROCUREMENT_MANAGER:
+        # Requests stats
+        req_pipeline = [
+            {"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }}
+        ]
+        req_counts = await db.material_requests.aggregate(req_pipeline).to_list(None)
+        req_map = {s["_id"]: s["count"] for s in req_counts}
+        
+        # Orders stats
+        order_pipeline = [
+            {"$match": {"manager_id": current_user["id"]}},
+            {"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }}
+        ]
+        order_counts = await db.purchase_orders.aggregate(order_pipeline).to_list(None)
+        order_map = {s["_id"]: s["count"] for s in order_counts}
+        
+        stats = {
+            "pending_orders": req_map.get(RequestStatus.APPROVED_BY_ENGINEER, 0) + req_map.get(RequestStatus.PARTIALLY_ORDERED, 0),
+            "total_orders": sum(order_map.values()),
+            "pending_approval": order_map.get(PurchaseOrderStatus.PENDING_APPROVAL, 0),
+            "approved_orders": order_map.get(PurchaseOrderStatus.APPROVED, 0) + order_map.get(PurchaseOrderStatus.PRINTED, 0),
+            "shipped_orders": order_map.get(PurchaseOrderStatus.SHIPPED, 0) + order_map.get(PurchaseOrderStatus.PARTIALLY_DELIVERED, 0),
+            "delivered_orders": order_map.get(PurchaseOrderStatus.DELIVERED, 0)
+        }
+        
+    elif current_user["role"] == UserRole.PRINTER:
+        order_pipeline = [
+            {"$match": {"status": {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED]}}},
+            {"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }}
+        ]
+        order_counts = await db.purchase_orders.aggregate(order_pipeline).to_list(None)
+        order_map = {s["_id"]: s["count"] for s in order_counts}
+        
+        stats = {
+            "pending_print": order_map.get(PurchaseOrderStatus.APPROVED, 0),
+            "printed": order_map.get(PurchaseOrderStatus.PRINTED, 0)
+        }
+        
+    elif current_user["role"] == UserRole.DELIVERY_TRACKER:
+        order_pipeline = [
+            {"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }}
+        ]
+        order_counts = await db.purchase_orders.aggregate(order_pipeline).to_list(None)
+        order_map = {s["_id"]: s["count"] for s in order_counts}
+        
+        stats = {
+            "pending_delivery": order_map.get(PurchaseOrderStatus.PRINTED, 0),
+            "shipped": order_map.get(PurchaseOrderStatus.SHIPPED, 0),
+            "partially_delivered": order_map.get(PurchaseOrderStatus.PARTIALLY_DELIVERED, 0),
+            "delivered": order_map.get(PurchaseOrderStatus.DELIVERED, 0),
+            "awaiting_shipment": order_map.get(PurchaseOrderStatus.APPROVED, 0) + order_map.get(PurchaseOrderStatus.PRINTED, 0)
+        }
+    
+    return stats
+
+@api_router.get("/v2/search")
+async def global_search(
+    q: str,
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Global search across requests and purchase orders
+    Returns combined results for quick navigation
+    """
+    results = {
+        "requests": [],
+        "orders": []
+    }
+    
+    if len(q) < 2:
+        return results
+    
+    search_limit = min(limit, 50)
+    
+    # Search requests
+    request_query = {"$or": [
+        {"request_number": {"$regex": q, "$options": "i"}},
+        {"items.name": {"$regex": q, "$options": "i"}},
+        {"project_name": {"$regex": q, "$options": "i"}}
+    ]}
+    
+    requests = await db.material_requests.find(
+        request_query,
+        {"_id": 0, "id": 1, "request_number": 1, "project_name": 1, "status": 1, "created_at": 1}
+    ).limit(search_limit).to_list(search_limit)
+    results["requests"] = requests
+    
+    # Search orders
+    order_query = {"$or": [
+        {"id": {"$regex": q, "$options": "i"}},
+        {"project_name": {"$regex": q, "$options": "i"}},
+        {"supplier_name": {"$regex": q, "$options": "i"}},
+        {"supplier_receipt_number": {"$regex": q, "$options": "i"}}
+    ]}
+    
+    orders = await db.purchase_orders.find(
+        order_query,
+        {"_id": 0, "id": 1, "project_name": 1, "supplier_name": 1, "status": 1, "total_amount": 1, "created_at": 1}
+    ).limit(search_limit).to_list(search_limit)
+    results["orders"] = orders
+    
+    return results
+
 # Health check
 @api_router.get("/health")
 async def health_check():
