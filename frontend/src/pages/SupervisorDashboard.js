@@ -588,6 +588,7 @@ const SupervisorDashboard = () => {
               </DialogContent>
             </Dialog>
           </div>
+          </div>
           
           {/* Filter Buttons - أزرار الفلترة */}
           <div className="flex flex-wrap gap-2">
