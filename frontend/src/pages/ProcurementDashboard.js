@@ -656,6 +656,16 @@ const ProcurementDashboard = () => {
               <Button variant="ghost" size="sm" onClick={() => setSuppliersListDialogOpen(true)} className="text-slate-300 hover:text-white h-8 px-2">
                 <Users className="w-4 h-4 ml-1" /><span className="hidden sm:inline">الموردين</span>
               </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleRefresh} 
+                disabled={refreshing}
+                className="text-slate-300 hover:text-white h-8 px-2"
+                title="تحديث البيانات"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => setPasswordDialogOpen(true)} className="text-slate-300 hover:text-white h-8 px-2">
                 <KeyRound className="w-4 h-4" />
               </Button>
@@ -670,6 +680,9 @@ const ProcurementDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
         {/* Stats */}
+        {loading ? (
+          <StatsSkeleton />
+        ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <Card className="border-r-4 border-yellow-500">
             <CardContent className="p-3">
