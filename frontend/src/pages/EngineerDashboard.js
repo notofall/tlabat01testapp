@@ -125,9 +125,6 @@ const EngineerDashboard = () => {
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const getItemsSummary = (items) => !items?.length ? "-" : items.length === 1 ? items[0].name : `${items[0].name} +${items.length - 1}`;
 
-  const pendingRequests = requests.filter((r) => r.status === "pending_engineer");
-  const processedRequests = requests.filter((r) => r.status !== "pending_engineer");
-
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-10 h-10 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div></div>;
   }
@@ -148,6 +145,9 @@ const EngineerDashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={refreshing} className="text-slate-300 hover:text-white h-8 px-2">
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => setPasswordDialogOpen(true)} className="text-slate-300 hover:text-white h-8 px-2">
                 <KeyRound className="w-4 h-4" />
               </Button>
@@ -162,40 +162,94 @@ const EngineerDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <Card className="border-r-4 border-orange-500">
             <CardContent className="p-3">
               <p className="text-xs text-slate-500">الإجمالي</p>
-              <p className="text-2xl font-bold">{stats.total || 0}</p>
+              <p className="text-2xl font-bold">{filterCounts.all}</p>
             </CardContent>
           </Card>
           <Card className="border-r-4 border-yellow-500">
             <CardContent className="p-3">
-              <p className="text-xs text-slate-500">معلقة</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.pending || 0}</p>
+              <p className="text-xs text-slate-500">بانتظار الاعتماد</p>
+              <p className="text-2xl font-bold text-yellow-600">{filterCounts.pending}</p>
             </CardContent>
           </Card>
           <Card className="border-r-4 border-green-500">
             <CardContent className="p-3">
               <p className="text-xs text-slate-500">معتمدة</p>
-              <p className="text-2xl font-bold text-green-600">{stats.approved || 0}</p>
+              <p className="text-2xl font-bold text-green-600">{filterCounts.approved}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-r-4 border-blue-500">
+            <CardContent className="p-3">
+              <p className="text-xs text-slate-500">تم الإصدار</p>
+              <p className="text-2xl font-bold text-blue-600">{filterCounts.ordered}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Pending Requests */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <Clock className="w-5 h-5 text-yellow-600" />
-              طلبات تحتاج اعتمادك
-              {pendingRequests.length > 0 && <Badge className="bg-yellow-500 text-white">{pendingRequests.length}</Badge>}
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => exportRequestsTableToPDF(requests, 'طلبات المهندس')} disabled={!requests.length} className="h-8 text-xs">
-                <Download className="w-3 h-3" />
+        {/* Requests Section */}
+        <div className="mb-4">
+          <div className="flex flex-col gap-3 mb-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-slate-700" />
+                الطلبات
+                {refreshing && <Loader2 className="w-4 h-4 animate-spin text-orange-500" />}
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => exportRequestsTableToPDF(filteredRequests, 'طلبات المهندس')} disabled={!filteredRequests.length} className="h-8 text-xs">
+                <Download className="w-3 h-3 ml-1" />تصدير
               </Button>
-              <Button variant="outline" size="sm" onClick={fetchData} className="h-8"><RefreshCw className="w-3 h-3" /></Button>
+            </div>
+            
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                size="sm" 
+                variant={filterMode === "pending" ? "default" : "outline"}
+                onClick={() => setFilterMode("pending")}
+                className={`h-8 text-xs ${filterMode === "pending" ? "bg-yellow-600 hover:bg-yellow-700" : "text-yellow-700 border-yellow-300 hover:bg-yellow-50"}`}
+              >
+                بانتظار الاعتماد
+                <Badge className="mr-1 bg-yellow-500 text-white text-xs">{filterCounts.pending}</Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={filterMode === "approved" ? "default" : "outline"}
+                onClick={() => setFilterMode("approved")}
+                className={`h-8 text-xs ${filterMode === "approved" ? "bg-green-600 hover:bg-green-700" : "text-green-700 border-green-300 hover:bg-green-50"}`}
+              >
+                معتمدة
+                <Badge className="mr-1 bg-green-500 text-white text-xs">{filterCounts.approved}</Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={filterMode === "rejected" ? "default" : "outline"}
+                onClick={() => setFilterMode("rejected")}
+                className={`h-8 text-xs ${filterMode === "rejected" ? "bg-red-600 hover:bg-red-700" : "text-red-700 border-red-300 hover:bg-red-50"}`}
+              >
+                مرفوضة
+                <Badge className="mr-1 bg-red-500 text-white text-xs">{filterCounts.rejected}</Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={filterMode === "ordered" ? "default" : "outline"}
+                onClick={() => setFilterMode("ordered")}
+                className={`h-8 text-xs ${filterMode === "ordered" ? "bg-blue-600 hover:bg-blue-700" : "text-blue-700 border-blue-300 hover:bg-blue-50"}`}
+              >
+                تم الإصدار
+                <Badge className="mr-1 bg-blue-500 text-white text-xs">{filterCounts.ordered}</Badge>
+              </Button>
+              <Button 
+                size="sm" 
+                variant={filterMode === "all" ? "default" : "outline"}
+                onClick={() => setFilterMode("all")}
+                className={`h-8 text-xs ${filterMode === "all" ? "bg-slate-600 hover:bg-slate-700" : "text-slate-700 border-slate-300 hover:bg-slate-50"}`}
+              >
+                الكل
+                <Badge className="mr-1 bg-slate-500 text-white text-xs">{filterCounts.all}</Badge>
+              </Button>
             </div>
           </div>
 
