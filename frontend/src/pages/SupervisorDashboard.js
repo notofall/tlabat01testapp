@@ -679,7 +679,7 @@ const SupervisorDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {requests.map((req) => (
+                      {paginatedRequests.map((req) => (
                         <TableRow key={req.id}>
                           <TableCell className="font-bold text-blue-600">{req.request_number || '-'}</TableCell>
                           <TableCell className="font-medium">{getItemsSummary(req.items)}</TableCell>
@@ -699,6 +699,38 @@ const SupervisorDashboard = () => {
                     </TableBody>
                   </Table>
                 </div>
+                
+                {/* Pagination - الترقيم */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between p-3 border-t bg-slate-50">
+                    <span className="text-xs text-slate-500">
+                      عرض {(requestsPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(requestsPage * ITEMS_PER_PAGE, filteredRequests.length)} من {filteredRequests.length}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRequestsPage(p => Math.max(1, p - 1))}
+                        disabled={requestsPage === 1}
+                        className="h-7 px-2 text-xs"
+                      >
+                        السابق
+                      </Button>
+                      <span className="flex items-center px-2 text-xs text-slate-600">
+                        {requestsPage} / {totalPages}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRequestsPage(p => Math.min(totalPages, p + 1))}
+                        disabled={requestsPage === totalPages}
+                        className="h-7 px-2 text-xs"
+                      >
+                        التالي
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </CardContent>
