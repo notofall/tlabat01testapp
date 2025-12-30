@@ -86,10 +86,57 @@ const SupervisorDashboard = () => {
       toast.error("فشل في تحميل البيانات");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    toast.success("تم تحديث البيانات");
+  };
+
   useEffect(() => { fetchData(); }, []);
+  
+  // Filtered requests based on filter mode
+  const getFilteredRequests = () => {
+    let filtered = [...requests];
+    switch (filterMode) {
+      case "pending_engineer":
+        filtered = filtered.filter(r => r.status === "pending_engineer");
+        break;
+      case "approved":
+        filtered = filtered.filter(r => r.status === "approved_by_engineer" || r.status === "partially_ordered");
+        break;
+      case "ordered":
+        filtered = filtered.filter(r => r.status === "purchase_order_issued");
+        break;
+      case "delivered":
+        filtered = filtered.filter(r => r.status === "delivered");
+        break;
+      default:
+        break;
+    }
+    return filtered;
+  };
+  
+  const filteredRequests = getFilteredRequests();
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  const paginatedRequests = filteredRequests.slice((requestsPage - 1) * ITEMS_PER_PAGE, requestsPage * ITEMS_PER_PAGE);
+  
+  // Reset page when filter changes
+  useEffect(() => {
+    setRequestsPage(1);
+  }, [filterMode]);
+  
+  // Filter counts for badges
+  const filterCounts = {
+    all: requests.length,
+    pending_engineer: requests.filter(r => r.status === "pending_engineer").length,
+    approved: requests.filter(r => r.status === "approved_by_engineer" || r.status === "partially_ordered").length,
+    ordered: requests.filter(r => r.status === "purchase_order_issued").length,
+    delivered: requests.filter(r => r.status === "delivered").length,
+  };
 
   // Delivery functions
   const openDeliveryDialog = (order) => {
