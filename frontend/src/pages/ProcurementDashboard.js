@@ -146,10 +146,34 @@ const ProcurementDashboard = () => {
       toast.error("فشل في تحميل البيانات");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  // Quick refresh function for real-time updates
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    toast.success("تم تحديث البيانات");
+  };
+
   useEffect(() => { fetchData(); }, []);
+
+  // Memoized filtered requests for performance
+  const filteredRequests = useMemo(() => {
+    let result = [...requests];
+    
+    // Filter by view mode
+    if (viewMode === "approved") {
+      result = result.filter(r => r.status === "approved_by_engineer" || r.status === "partially_ordered");
+    } else if (viewMode === "pending") {
+      result = result.filter(r => r.status === "pending_engineer");
+    } else if (viewMode === "ordered") {
+      result = result.filter(r => r.status === "purchase_order_issued");
+    }
+    
+    return result;
+  }, [requests, viewMode]);
 
   // Apply filters
   const applyFilter = () => {
