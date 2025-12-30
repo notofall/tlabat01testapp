@@ -445,21 +445,25 @@ const SupervisorDashboard = () => {
         )}
 
         {/* Actions */}
-        <div className="flex items-center justify-between mb-4 gap-2">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-900">طلباتي</h2>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => exportRequestsTableToPDF(requests, 'طلباتي')} disabled={!requests.length} className="h-8 px-2 text-xs">
-              <Download className="w-3 h-3 sm:ml-1" /><span className="hidden sm:inline">تصدير</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={fetchData} className="h-8 px-2">
-              <RefreshCw className="w-3 h-3" />
-            </Button>
-            <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white h-8 px-3 text-xs">
-                  <Plus className="w-3 h-3 ml-1" />طلب جديد
-                </Button>
-              </DialogTrigger>
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+              طلباتي
+              {refreshing && <Loader2 className="w-4 h-4 animate-spin text-orange-500" />}
+            </h2>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => exportRequestsTableToPDF(filteredRequests, 'طلباتي')} disabled={!filteredRequests.length} className="h-8 px-2 text-xs">
+                <Download className="w-3 h-3 sm:ml-1" /><span className="hidden sm:inline">تصدير</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="h-8 px-2">
+                <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white h-8 px-3 text-xs">
+                    <Plus className="w-3 h-3 ml-1" />طلب جديد
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto p-4" dir="rtl">
                 <DialogHeader><DialogTitle className="text-center text-lg">إنشاء طلب مواد جديد</DialogTitle></DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 mt-4">
