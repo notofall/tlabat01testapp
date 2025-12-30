@@ -105,10 +105,11 @@ const ProcurementDashboard = () => {
 
   const fetchData = async () => {
     try {
+      // Use optimized V2 APIs for better performance with high data volumes
       const [requestsRes, ordersRes, statsRes, suppliersRes, categoriesRes, projectsRes, defaultCatsRes] = await Promise.all([
-        axios.get(`${API_URL}/requests`, getAuthHeaders()),
+        axios.get(`${API_URL}/requests`, getAuthHeaders()),  // Still uses old API for full data
         axios.get(`${API_URL}/purchase-orders`, getAuthHeaders()),
-        axios.get(`${API_URL}/dashboard/stats`, getAuthHeaders()),
+        axios.get(`${API_URL}/v2/dashboard/stats`, getAuthHeaders()),  // Optimized stats
         axios.get(`${API_URL}/suppliers`, getAuthHeaders()),
         axios.get(`${API_URL}/budget-categories`, getAuthHeaders()),
         axios.get(`${API_URL}/projects`, getAuthHeaders()),
