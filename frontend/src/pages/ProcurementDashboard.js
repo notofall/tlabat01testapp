@@ -334,12 +334,7 @@ const ProcurementDashboard = () => {
       const formData = new FormData();
       formData.append('file', catalogFile);
       
-      const res = await axios.post(`${API_URL}/price-catalog/import`, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const res = await axios.post(`${API_URL}/price-catalog/import`, formData, getAuthHeaders());
       
       toast.success(`تم الاستيراد: ${res.data.imported} جديد، ${res.data.updated} تحديث`);
       if (res.data.errors?.length > 0) {
