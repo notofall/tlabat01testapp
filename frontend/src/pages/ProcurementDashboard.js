@@ -1505,6 +1505,7 @@ const ProcurementDashboard = () => {
                                   <Button size="sm" variant="ghost" onClick={() => { setSelectedOrder(order); setViewOrderDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
                                   <Button size="sm" variant="ghost" onClick={() => openEditOrderDialog(order)} className="h-8 w-8 p-0"><Edit className="w-4 h-4 text-blue-600" /></Button>
                                   <Button size="sm" variant="ghost" onClick={() => exportPurchaseOrderToPDF(order)} className="h-8 w-8 p-0"><Download className="w-4 h-4 text-green-600" /></Button>
+                                  <Button size="sm" variant="ghost" onClick={() => handleDeleteOrder(order.id)} className="h-8 w-8 p-0" title="حذف أمر الشراء"><Trash2 className="w-4 h-4 text-red-600" /></Button>
                                 </div>
                               </TableCell>
                             </TableRow>
