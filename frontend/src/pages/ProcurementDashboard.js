@@ -3245,6 +3245,38 @@ const ProcurementDashboard = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit Default Category Dialog */}
+      {editingDefaultCategory && (
+        <Dialog open={!!editingDefaultCategory} onOpenChange={() => setEditingDefaultCategory(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>تعديل التصنيف</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>اسم التصنيف</Label>
+                <Input 
+                  value={editingDefaultCategory.name}
+                  onChange={(e) => setEditingDefaultCategory({...editingDefaultCategory, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label>الميزانية الافتراضية</Label>
+                <Input 
+                  type="number"
+                  value={editingDefaultCategory.default_budget || ""}
+                  onChange={(e) => setEditingDefaultCategory({...editingDefaultCategory, default_budget: e.target.value})}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingDefaultCategory(null)}>إلغاء</Button>
+                <Button onClick={handleUpdateDefaultCategory} className="bg-orange-600 hover:bg-orange-700">حفظ</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
