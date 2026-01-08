@@ -270,7 +270,7 @@ class QuotationSystemTester:
 
     # ==================== AUTHORIZATION TESTS ====================
 
-    def test_unauthorized_access(self, token, endpoint, method="GET", expected_status=403):
+    def test_unauthorized_access(self, token, endpoint, method="GET", expected_status=403, data=None):
         """Test unauthorized access to endpoints"""
         headers = {'Authorization': f'Bearer {token}'}
         success, response = self.run_test(
@@ -278,6 +278,7 @@ class QuotationSystemTester:
             method,
             endpoint,
             expected_status,
+            data=data,
             headers=headers
         )
         return success
