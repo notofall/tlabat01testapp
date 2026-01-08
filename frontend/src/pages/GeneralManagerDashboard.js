@@ -249,7 +249,55 @@ export default function GeneralManagerDashboard() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              {/* Mobile Cards View */}
+              <div className="block sm:hidden divide-y divide-slate-100">
+                {pendingOrders.map((order) => (
+                  <div key={order.id} className="p-3 hover:bg-slate-50">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-slate-800">{order.request_number || order.id.slice(0, 8)}</p>
+                        <p className="text-xs text-slate-500">{order.project_name}</p>
+                      </div>
+                      <span className="text-sm font-bold text-red-600">{formatCurrency(order.total_amount)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-slate-500 mb-3">
+                      <span>{order.supplier_name}</span>
+                      <span>{formatDate(order.created_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setSelectedOrder(order); setShowDetailsDialog(true); }}
+                        className="flex-1 h-8 text-xs"
+                      >
+                        <Eye className="w-3 h-3 ml-1" />
+                        تفاصيل
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(order.id)}
+                        className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="w-3 h-3 ml-1" />
+                        اعتماد
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => openRejectDialog(order.id)}
+                        className="flex-1 h-8 text-xs"
+                      >
+                        <XCircle className="w-3 h-3 ml-1" />
+                        رفض
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50">
                     <tr>
