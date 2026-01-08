@@ -1721,16 +1721,15 @@ const ProcurementDashboard = () => {
                                 <span className="text-xs text-slate-500">ر.س</span>
                               </div>
                               
-                              {/* Catalog linking dropdown */}
+                              {/* Catalog linking - searchable dropdown */}
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-600">ربط بالكتالوج:</span>
-                                <select
-                                  value={catalogInfo?.catalog_item_id || ""}
-                                  onChange={(e) => {
-                                    const selectedId = e.target.value;
-                                    if (selectedId) {
-                                      const catalogItem = catalogItems.find(c => c.id === selectedId);
-                                      if (catalogItem) {
+                                <span className="text-xs text-slate-600 whitespace-nowrap">ربط بالكتالوج:</span>
+                                <div className="flex-1">
+                                  <SearchableSelect
+                                    options={catalogItems}
+                                    value={catalogInfo?.catalog_item_id || ""}
+                                    onChange={(selectedId, catalogItem) => {
+                                      if (selectedId && catalogItem) {
                                         setCatalogPrices(prev => ({
                                           ...prev,
                                           [idx]: {
@@ -1745,24 +1744,26 @@ const ProcurementDashboard = () => {
                                           [idx]: catalogItem.price.toString()
                                         }));
                                         toast.success(`تم ربط "${item.name}" بـ "${catalogItem.name}" - السعر: ${catalogItem.price.toLocaleString()} ر.س`);
+                                      } else {
+                                        setCatalogPrices(prev => {
+                                          const newPrices = {...prev};
+                                          delete newPrices[idx];
+                                          return newPrices;
+                                        });
                                       }
-                                    } else {
-                                      setCatalogPrices(prev => {
-                                        const newPrices = {...prev};
-                                        delete newPrices[idx];
-                                        return newPrices;
-                                      });
-                                    }
-                                  }}
-                                  className="flex-1 text-xs border rounded px-2 py-1 bg-white"
-                                >
-                                  <option value="">-- اختر صنف من الكتالوج --</option>
-                                  {catalogItems.map(cat => (
-                                    <option key={cat.id} value={cat.id}>
-                                      {cat.name} - {cat.price?.toLocaleString()} ر.س {cat.supplier_name ? `(${cat.supplier_name})` : ''}
-                                    </option>
-                                  ))}
-                                </select>
+                                    }}
+                                    placeholder="اختر صنف من الكتالوج"
+                                    searchPlaceholder="ابحث في الكتالوج..."
+                                    displayKey="name"
+                                    valueKey="id"
+                                    renderOption={(cat) => (
+                                      <div className="flex justify-between items-center">
+                                        <span>{cat.name}</span>
+                                        <span className="text-green-600 font-medium">{cat.price?.toLocaleString()} ر.س</span>
+                                      </div>
+                                    )}
+                                  />
+                                </div>
                                 {!catalogInfo && (
                                   <Button 
                                     variant="ghost" 
