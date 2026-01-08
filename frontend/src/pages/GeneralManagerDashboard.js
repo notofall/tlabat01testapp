@@ -134,44 +134,44 @@ export default function GeneralManagerDashboard() {
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <header className="bg-gradient-to-l from-purple-700 to-purple-600 text-white shadow-lg">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                 <ClipboardCheck className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">لوحة تحكم المدير العام</h1>
-                <p className="text-purple-200 text-sm">مرحباً، {user?.name}</p>
+                <h1 className="text-lg sm:text-xl font-bold">المدير العام</h1>
+                <p className="text-purple-200 text-xs sm:text-sm">مرحباً، {user?.name}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={fetchSettings}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 h-8 px-2 text-xs sm:text-sm"
               >
-                <Settings className="w-4 h-4 ml-1" />
-                الإعدادات
+                <Settings className="w-4 h-4 sm:ml-1" />
+                <span className="hidden sm:inline">الإعدادات</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={fetchData}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 h-8 px-2 text-xs sm:text-sm"
               >
-                <RefreshCw className="w-4 h-4 ml-1" />
-                تحديث
+                <RefreshCw className="w-4 h-4 sm:ml-1" />
+                <span className="hidden sm:inline">تحديث</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={logout}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 h-8 px-2 text-xs sm:text-sm"
               >
-                <LogOut className="w-4 h-4 ml-1" />
-                خروج
+                <LogOut className="w-4 h-4 sm:ml-1" />
+                <span className="hidden sm:inline">خروج</span>
               </Button>
             </div>
           </div>
