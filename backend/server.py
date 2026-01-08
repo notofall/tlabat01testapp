@@ -213,6 +213,47 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+# User Management Models - إدارة المستخدمين
+class UserCreateByAdmin(BaseModel):
+    """نموذج إنشاء مستخدم بواسطة مدير المشتريات"""
+    name: str
+    email: EmailStr
+    password: str
+    role: str
+    assigned_projects: Optional[List[str]] = []  # قائمة معرفات المشاريع
+    assigned_engineers: Optional[List[str]] = []  # قائمة معرفات المهندسين (للمشرفين)
+
+class UserUpdateByAdmin(BaseModel):
+    """نموذج تحديث مستخدم"""
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    assigned_projects: Optional[List[str]] = None
+    assigned_engineers: Optional[List[str]] = None
+
+class AdminResetPassword(BaseModel):
+    """إعادة تعيين كلمة المرور بواسطة المدير"""
+    new_password: str
+
+class SetupFirstAdmin(BaseModel):
+    """إعداد أول مدير مشتريات"""
+    name: str
+    email: EmailStr
+    password: str
+
+class UserFullResponse(BaseModel):
+    """استجابة كاملة للمستخدم"""
+    id: str
+    name: str
+    email: str
+    role: str
+    is_active: bool = True
+    supervisor_prefix: Optional[str] = None
+    assigned_projects: List[str] = []
+    assigned_engineers: List[str] = []
+    created_at: Optional[str] = None
+
 # Supplier Models
 class SupplierCreate(BaseModel):
     name: str
