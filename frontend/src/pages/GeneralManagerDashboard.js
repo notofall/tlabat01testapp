@@ -13,8 +13,12 @@ import {
   Eye,
   Settings,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  KeyRound,
+  FileText,
+  Truck
 } from 'lucide-react';
+import ChangePasswordDialog from '../components/ChangePasswordDialog';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -27,6 +31,7 @@ export default function GeneralManagerDashboard() {
     approval_limit: 20000
   });
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [approvedOrders, setApprovedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
@@ -35,29 +40,36 @@ export default function GeneralManagerDashboard() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [orderToReject, setOrderToReject] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'approved'
+  const [pendingPage, setPendingPage] = useState(1);
+  const [approvedPage, setApprovedPage] = useState(1);
+  const [pendingTotalPages, setPendingTotalPages] = useState(1);
+  const [approvedTotalPages, setApprovedTotalPages] = useState(1);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
       
-      const [statsRes, ordersRes] = await Promise.all([
+      const [statsRes, pendingRes, approvedRes] = await Promise.all([
         axios.get(`${API_URL}/api/gm/stats`, { headers }),
-        axios.get(`${API_URL}/api/gm/pending-approvals?page=${page}&page_size=10`, { headers })
+        axios.get(`${API_URL}/api/gm/all-orders?status=pending&page=${pendingPage}&page_size=10`, { headers }),
+        axios.get(`${API_URL}/api/gm/all-orders?status=approved&page=${approvedPage}&page_size=10`, { headers })
       ]);
       
       setStats(statsRes.data);
-      setPendingOrders(ordersRes.data.items || []);
-      setTotalPages(ordersRes.data.total_pages || 1);
+      setPendingOrders(pendingRes.data.items || []);
+      setPendingTotalPages(pendingRes.data.total_pages || 1);
+      setApprovedOrders(approvedRes.data.items || []);
+      setApprovedTotalPages(approvedRes.data.total_pages || 1);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('حدث خطأ في تحميل البيانات');
     } finally {
       setLoading(false);
     }
-  }, [token, page]);
+  }, [token, pendingPage, approvedPage]);
 
   useEffect(() => {
     fetchData();
@@ -130,8 +142,29 @@ export default function GeneralManagerDashboard() {
     return new Date(dateString).toLocaleDateString('ar-SA');
   };
 
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      'pending_gm_approval': { label: 'بانتظار الموافقة', color: 'bg-amber-100 text-amber-800' },
+      'approved': { label: 'معتمد', color: 'bg-green-100 text-green-800' },
+      'delivered': { label: 'تم التسليم', color: 'bg-blue-100 text-blue-800' },
+      'partially_delivered': { label: 'تسليم جزئي', color: 'bg-cyan-100 text-cyan-800' },
+      'rejected_by_gm': { label: 'مرفوض', color: 'bg-red-100 text-red-800' },
+    };
+    const statusInfo = statusMap[status] || { label: status, color: 'bg-slate-100 text-slate-800' };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+        {statusInfo.label}
+      </span>
+    );
+  };
+
+  const currentOrders = activeTab === 'pending' ? pendingOrders : approvedOrders;
+  const currentPage = activeTab === 'pending' ? pendingPage : approvedPage;
+  const totalPages = activeTab === 'pending' ? pendingTotalPages : approvedTotalPages;
+  const setCurrentPage = activeTab === 'pending' ? setPendingPage : setApprovedPage;
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50" dir="rtl">
       {/* Header */}
       <header className="bg-gradient-to-l from-purple-700 to-purple-600 text-white shadow-lg">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
@@ -141,7 +174,7 @@ export default function GeneralManagerDashboard() {
                 <ClipboardCheck className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold">المدير العام</h1>
+                <h1 className="text-lg sm:text-xl font-bold">لوحة تحكم المدير العام</h1>
                 <p className="text-purple-200 text-xs sm:text-sm">مرحباً، {user?.name}</p>
               </div>
             </div>
@@ -163,6 +196,14 @@ export default function GeneralManagerDashboard() {
               >
                 <RefreshCw className="w-4 h-4 sm:ml-1" />
                 <span className="hidden sm:inline">تحديث</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPasswordDialogOpen(true)}
+                className="text-white hover:bg-white/20 h-8 px-2"
+              >
+                <KeyRound className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -230,11 +271,51 @@ export default function GeneralManagerDashboard() {
           </div>
         </div>
 
-        {/* Pending Orders Table */}
+        {/* Orders Section with Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100">
+          {/* Tabs */}
+          <div className="border-b border-slate-100">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'pending'
+                    ? 'border-purple-600 text-purple-600 bg-purple-50'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Clock className="w-4 h-4 inline-block ml-1" />
+                بانتظار الموافقة
+                {pendingOrders.length > 0 && (
+                  <span className="mr-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs">
+                    {pendingOrders.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('approved')}
+                className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'approved'
+                    ? 'border-purple-600 text-purple-600 bg-purple-50'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <CheckCircle className="w-4 h-4 inline-block ml-1" />
+                الأوامر المعتمدة
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
           <div className="p-3 sm:p-4 border-b border-slate-100">
-            <h2 className="text-base sm:text-lg font-bold text-slate-800">أوامر الشراء بانتظار الموافقة</h2>
-            <p className="text-xs sm:text-sm text-slate-500">أوامر شراء تتجاوز {formatCurrency(stats.approval_limit)}</p>
+            <h2 className="text-base sm:text-lg font-bold text-slate-800">
+              {activeTab === 'pending' ? 'أوامر الشراء بانتظار الموافقة' : 'أوامر الشراء المعتمدة'}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500">
+              {activeTab === 'pending' 
+                ? `أوامر شراء تتجاوز ${formatCurrency(stats.approval_limit)}`
+                : 'جميع أوامر الشراء التي تمت الموافقة عليها'}
+            </p>
           </div>
 
           {loading ? (
@@ -242,23 +323,35 @@ export default function GeneralManagerDashboard() {
               <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
               <p className="text-slate-500">جاري التحميل...</p>
             </div>
-          ) : pendingOrders.length === 0 ? (
+          ) : currentOrders.length === 0 ? (
             <div className="p-8 text-center">
-              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
-              <p className="text-slate-500">لا توجد طلبات بانتظار الموافقة</p>
+              {activeTab === 'pending' ? (
+                <>
+                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                  <p className="text-slate-500">لا توجد طلبات بانتظار الموافقة</p>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-500">لا توجد أوامر معتمدة</p>
+                </>
+              )}
             </div>
           ) : (
             <>
               {/* Mobile Cards View */}
               <div className="block sm:hidden divide-y divide-slate-100">
-                {pendingOrders.map((order) => (
+                {currentOrders.map((order) => (
                   <div key={order.id} className="p-3 hover:bg-slate-50">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <p className="font-medium text-slate-800">{order.request_number || order.id.slice(0, 8)}</p>
                         <p className="text-xs text-slate-500">{order.project_name}</p>
                       </div>
-                      <span className="text-sm font-bold text-red-600">{formatCurrency(order.total_amount)}</span>
+                      <div className="text-left">
+                        <span className="text-sm font-bold text-purple-600 block">{formatCurrency(order.total_amount)}</span>
+                        {getStatusBadge(order.status)}
+                      </div>
                     </div>
                     <div className="flex justify-between items-center text-xs text-slate-500 mb-3">
                       <span>{order.supplier_name}</span>
@@ -274,23 +367,27 @@ export default function GeneralManagerDashboard() {
                         <Eye className="w-3 h-3 ml-1" />
                         تفاصيل
                       </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprove(order.id)}
-                        className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="w-3 h-3 ml-1" />
-                        اعتماد
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => openRejectDialog(order.id)}
-                        className="flex-1 h-8 text-xs"
-                      >
-                        <XCircle className="w-3 h-3 ml-1" />
-                        رفض
-                      </Button>
+                      {activeTab === 'pending' && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprove(order.id)}
+                            className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="w-3 h-3 ml-1" />
+                            اعتماد
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => openRejectDialog(order.id)}
+                            className="flex-1 h-8 text-xs"
+                          >
+                            <XCircle className="w-3 h-3 ml-1" />
+                            رفض
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -301,23 +398,25 @@ export default function GeneralManagerDashboard() {
                 <table className="w-full">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">رقم الطلب</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">رقم الأمر</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">المشروع</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">المورد</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">المبلغ</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">الحالة</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">التاريخ</th>
                       <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {pendingOrders.map((order) => (
+                    {currentOrders.map((order) => (
                       <tr key={order.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm text-slate-800">{order.request_number || order.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3 text-sm text-slate-800 font-medium">{order.request_number || order.id.slice(0, 8)}</td>
                         <td className="px-4 py-3 text-sm text-slate-800">{order.project_name}</td>
                         <td className="px-4 py-3 text-sm text-slate-800">{order.supplier_name}</td>
                         <td className="px-4 py-3">
-                          <span className="text-sm font-bold text-red-600">{formatCurrency(order.total_amount)}</span>
+                          <span className="text-sm font-bold text-purple-600">{formatCurrency(order.total_amount)}</span>
                         </td>
+                        <td className="px-4 py-3">{getStatusBadge(order.status)}</td>
                         <td className="px-4 py-3 text-sm text-slate-500">{formatDate(order.created_at)}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
@@ -329,23 +428,27 @@ export default function GeneralManagerDashboard() {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleApprove(order.id)}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="w-4 h-4 ml-1" />
-                              اعتماد
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => openRejectDialog(order.id)}
-                            >
-                              <XCircle className="w-4 h-4 ml-1" />
-                              رفض
-                            </Button>
+                            {activeTab === 'pending' && (
+                              <>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handleApprove(order.id)}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <CheckCircle className="w-4 h-4 ml-1" />
+                                  اعتماد
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => openRejectDialog(order.id)}
+                                >
+                                  <XCircle className="w-4 h-4 ml-1" />
+                                  رفض
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -360,19 +463,19 @@ export default function GeneralManagerDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
                   >
                     السابق
                   </Button>
                   <span className="text-sm text-slate-500">
-                    صفحة {page} من {totalPages}
+                    صفحة {currentPage} من {totalPages}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
                   >
                     التالي
                   </Button>
@@ -385,92 +488,85 @@ export default function GeneralManagerDashboard() {
 
       {/* Order Details Dialog */}
       {showDetailsDialog && selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto">
-            <div className="p-3 sm:p-4 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white">
-              <h3 className="text-base sm:text-lg font-bold">تفاصيل أمر الشراء</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowDetailsDialog(false)}>×</Button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white">
+              <h3 className="text-lg font-bold text-slate-800">تفاصيل أمر الشراء</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowDetailsDialog(false)}>
+                <XCircle className="w-5 h-5" />
+              </Button>
             </div>
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-              <div className="grid grid-cols-2 gap-2 sm:gap-4 text-sm">
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs sm:text-sm text-slate-500">رقم الطلب</p>
+                  <p className="text-sm text-slate-500">رقم الأمر</p>
                   <p className="font-medium">{selectedOrder.request_number || selectedOrder.id.slice(0, 8)}</p>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-slate-500">المشروع</p>
+                  <p className="text-sm text-slate-500">المشروع</p>
                   <p className="font-medium">{selectedOrder.project_name}</p>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm text-slate-500">المورد</p>
+                  <p className="text-sm text-slate-500">المورد</p>
                   <p className="font-medium">{selectedOrder.supplier_name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">المبلغ الإجمالي</p>
-                  <p className="font-bold text-red-600">{formatCurrency(selectedOrder.total_amount)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">المشرف</p>
-                  <p className="font-medium">{selectedOrder.supervisor_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">المهندس</p>
-                  <p className="font-medium">{selectedOrder.engineer_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">مدير المشتريات</p>
-                  <p className="font-medium">{selectedOrder.manager_name}</p>
+                  <p className="text-sm text-slate-500">الحالة</p>
+                  {getStatusBadge(selectedOrder.status)}
                 </div>
                 <div>
                   <p className="text-sm text-slate-500">التاريخ</p>
                   <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
                 </div>
-              </div>
-
-              {/* Items */}
-              <div className="mt-4">
-                <h4 className="font-medium mb-2">الأصناف</h4>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-right pb-2">الصنف</th>
-                        <th className="text-right pb-2">الكمية</th>
-                        <th className="text-right pb-2">السعر</th>
-                        <th className="text-right pb-2">الإجمالي</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedOrder.items?.map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-100 last:border-0">
-                          <td className="py-2">{item.name}</td>
-                          <td className="py-2">{item.quantity} {item.unit}</td>
-                          <td className="py-2">{formatCurrency(item.unit_price)}</td>
-                          <td className="py-2 font-medium">{formatCurrency(item.total_price)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div>
+                  <p className="text-sm text-slate-500">المبلغ الإجمالي</p>
+                  <p className="font-bold text-purple-600 text-lg">{formatCurrency(selectedOrder.total_amount)}</p>
                 </div>
               </div>
+
+              {selectedOrder.items && selectedOrder.items.length > 0 && (
+                <div>
+                  <p className="text-sm text-slate-500 mb-2">الأصناف</p>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-3 py-2 text-right">الصنف</th>
+                          <th className="px-3 py-2 text-right">الكمية</th>
+                          <th className="px-3 py-2 text-right">السعر</th>
+                          <th className="px-3 py-2 text-right">الإجمالي</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {selectedOrder.items.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2">{item.name}</td>
+                            <td className="px-3 py-2">{item.quantity} {item.unit}</td>
+                            <td className="px-3 py-2">{formatCurrency(item.unit_price)}</td>
+                            <td className="px-3 py-2">{formatCurrency(item.total_price)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {selectedOrder.notes && (
                 <div>
                   <p className="text-sm text-slate-500">ملاحظات</p>
-                  <p className="bg-slate-50 p-2 rounded">{selectedOrder.notes}</p>
+                  <p className="bg-slate-50 p-3 rounded-lg text-sm">{selectedOrder.notes}</p>
                 </div>
               )}
-            </div>
-            <div className="p-4 border-t border-slate-100 flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>إغلاق</Button>
-              <Button className="bg-green-600 hover:bg-green-700" onClick={() => { handleApprove(selectedOrder.id); setShowDetailsDialog(false); }}>
-                <CheckCircle className="w-4 h-4 ml-1" />
-                اعتماد
-              </Button>
-              <Button variant="destructive" onClick={() => { openRejectDialog(selectedOrder.id); setShowDetailsDialog(false); }}>
-                <XCircle className="w-4 h-4 ml-1" />
-                رفض
-              </Button>
+
+              {selectedOrder.gm_approved_at && (
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    <CheckCircle className="w-4 h-4 inline ml-1" />
+                    تم الاعتماد بواسطة {selectedOrder.gm_approved_by_name} في {formatDate(selectedOrder.gm_approved_at)}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -479,27 +575,37 @@ export default function GeneralManagerDashboard() {
       {/* Reject Dialog */}
       {showRejectDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="p-4 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-red-600">رفض أمر الشراء</h3>
+              <h3 className="text-lg font-bold text-slate-800">رفض أمر الشراء</h3>
             </div>
-            <div className="p-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">سبب الرفض (اختياري)</label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                rows={3}
-                placeholder="أدخل سبب الرفض..."
-              />
-            </div>
-            <div className="p-4 border-t border-slate-100 flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => { setShowRejectDialog(false); setOrderToReject(null); setRejectionReason(''); }}>
-                إلغاء
-              </Button>
-              <Button variant="destructive" onClick={handleReject}>
-                تأكيد الرفض
-              </Button>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">سبب الرفض (اختياري)</label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg p-3 text-sm"
+                  rows={3}
+                  placeholder="أدخل سبب الرفض..."
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={handleReject}
+                  className="flex-1"
+                >
+                  تأكيد الرفض
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowRejectDialog(false); setOrderToReject(null); setRejectionReason(''); }}
+                  className="flex-1"
+                >
+                  إلغاء
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -508,41 +614,57 @@ export default function GeneralManagerDashboard() {
       {/* Settings Dialog */}
       {showSettingsDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-            <div className="p-4 border-b border-slate-100">
-              <h3 className="text-lg font-bold">إعدادات النظام</h3>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800">إعدادات النظام</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowSettingsDialog(false)}>
+                <XCircle className="w-5 h-5" />
+              </Button>
             </div>
             <div className="p-4 space-y-4">
               {settings.map((setting) => (
-                <div key={setting.key} className="bg-slate-50 rounded-lg p-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">{setting.key === 'approval_limit' ? 'حد الموافقة' : setting.key}</p>
-                      <p className="text-xs text-slate-500">{setting.description}</p>
-                    </div>
+                <div key={setting.key} className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-slate-800">
+                      {setting.key === 'approval_limit' ? 'حد الموافقة' : setting.key}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {setting.key === 'approval_limit' && 'أوامر الشراء التي تتجاوز هذا المبلغ تحتاج موافقتك'}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
-                      type={setting.key === 'approval_limit' ? 'number' : 'text'}
-                      defaultValue={setting.value}
-                      onBlur={(e) => {
-                        if (e.target.value !== setting.value) {
-                          updateSetting(setting.key, e.target.value);
-                        }
+                      type="number"
+                      value={setting.value}
+                      onChange={(e) => {
+                        const newSettings = settings.map(s => 
+                          s.key === setting.key ? {...s, value: parseInt(e.target.value)} : s
+                        );
+                        setSettings(newSettings);
                       }}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-28 border border-slate-200 rounded px-2 py-1 text-sm"
                     />
-                    {setting.key === 'approval_limit' && <span className="text-slate-500">ريال</span>}
+                    <Button
+                      size="sm"
+                      onClick={() => updateSetting(setting.key, setting.value)}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      حفظ
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="p-4 border-t border-slate-100 flex justify-end">
-              <Button onClick={() => setShowSettingsDialog(false)}>إغلاق</Button>
-            </div>
           </div>
         </div>
       )}
+
+      {/* Change Password Dialog */}
+      <ChangePasswordDialog 
+        open={passwordDialogOpen} 
+        onOpenChange={setPasswordDialogOpen}
+        token={token}
+      />
     </div>
   );
 }
