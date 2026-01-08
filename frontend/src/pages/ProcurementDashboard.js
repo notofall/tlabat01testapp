@@ -315,16 +315,18 @@ const ProcurementDashboard = () => {
   };
 
   // Import Catalog from file
+  const [catalogFile, setCatalogFile] = useState(null);
+  
   const handleImportCatalog = async () => {
-    if (!importFile) {
+    if (!catalogFile) {
       toast.error("اختر ملف للاستيراد");
       return;
     }
     
-    setImportLoading(true);
+    setCatalogImportLoading(true);
     try {
       const formData = new FormData();
-      formData.append('file', importFile);
+      formData.append('file', catalogFile);
       
       const res = await axios.post(`${API_URL}/price-catalog/import`, formData, {
         headers: {
@@ -337,12 +339,12 @@ const ProcurementDashboard = () => {
       if (res.data.errors?.length > 0) {
         toast.warning(`${res.data.errors.length} أخطاء`);
       }
-      setImportFile(null);
+      setCatalogFile(null);
       fetchCatalog(catalogSearch, 1);
     } catch (error) {
       toast.error(error.response?.data?.detail || "فشل في الاستيراد");
     } finally {
-      setImportLoading(false);
+      setCatalogImportLoading(false);
     }
   };
 
