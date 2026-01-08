@@ -2942,6 +2942,90 @@ const ProcurementDashboard = () => {
             </div>
           )}
 
+          {/* Categories View - إدارة التصنيفات */}
+          {catalogViewMode === "categories" && (
+            <div className="space-y-4">
+              {/* Add New Category Form */}
+              <div className="border rounded-lg p-3 bg-slate-50">
+                <h4 className="font-medium text-sm mb-2">إضافة تصنيف جديد</h4>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs">اسم التصنيف *</Label>
+                    <Input 
+                      placeholder="مثال: مواد البناء"
+                      value={newDefaultCategory.name}
+                      onChange={(e) => setNewDefaultCategory({...newDefaultCategory, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="w-40">
+                    <Label className="text-xs">الميزانية الافتراضية</Label>
+                    <Input 
+                      type="number"
+                      placeholder="0"
+                      value={newDefaultCategory.default_budget}
+                      onChange={(e) => setNewDefaultCategory({...newDefaultCategory, default_budget: e.target.value})}
+                    />
+                  </div>
+                  <Button onClick={handleAddDefaultCategory} className="bg-green-600 hover:bg-green-700">
+                    <Plus className="w-4 h-4 ml-1" />
+                    إضافة
+                  </Button>
+                </div>
+              </div>
+
+              {/* Categories List */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>اسم التصنيف</TableHead>
+                      <TableHead>الميزانية الافتراضية</TableHead>
+                      <TableHead>الإجراءات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {defaultCategories.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-slate-500">
+                          لا توجد تصنيفات - أضف تصنيفات لتظهر هنا
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      defaultCategories.map(category => (
+                        <TableRow key={category.id}>
+                          <TableCell className="font-medium">{category.name}</TableCell>
+                          <TableCell>{category.default_budget?.toLocaleString() || 0} ر.س</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setEditingDefaultCategory({...category})}
+                              >
+                                <Edit className="w-4 h-4 text-blue-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleDeleteDefaultCategory(category.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <p className="text-xs text-slate-500 text-center">
+                💡 التصنيفات تُستخدم لتصنيف الأصناف في الكتالوج وربطها بميزانيات المشاريع
+              </p>
+            </div>
+          )}
+
           {/* Reports View - التقارير */}
           {catalogViewMode === "reports" && (
             <div className="space-y-4">
