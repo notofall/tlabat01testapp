@@ -4314,36 +4314,6 @@ async def import_catalog_from_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"خطأ في معالجة الملف: {str(e)}")
 
-@api_router.get("/price-catalog/template")
-async def get_catalog_import_template(current_user: dict = Depends(get_current_user)):
-    """تحميل قالب استيراد الكتالوج"""
-    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
-        raise HTTPException(status_code=403, detail="غير مصرح لك")
-    
-    # Create template DataFrame
-    template_data = {
-        'اسم الصنف': ['حديد تسليح 12مم', 'اسمنت بورتلاندي', 'رمل ناعم'],
-        'الوصف': ['حديد تسليح قطر 12 مم', 'اسمنت بورتلاندي عادي', 'رمل ناعم للبناء'],
-        'الوحدة': ['طن', 'كيس', 'متر مكعب'],
-        'السعر': [2500, 25, 150],
-        'العملة': ['SAR', 'SAR', 'SAR'],
-        'المورد': ['مصنع الحديد', 'شركة الاسمنت', 'مورد الرمل']
-    }
-    
-    df = pd.DataFrame(template_data)
-    
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='قالب الكتالوج', index=False)
-    
-    output.seek(0)
-    
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=catalog_template.xlsx"}
-    )
-
 # ==================== COST SAVINGS REPORTS ====================
 
 @api_router.get("/reports/cost-savings")
