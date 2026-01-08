@@ -2867,6 +2867,176 @@ async def get_delivery_stats(current_user: dict = Depends(get_current_user)):
         "awaiting_shipment": approved_count + printed_count
     }
 
+# ==================== DELETE ORDERS & REQUESTS ROUTES ====================
+
+@api_router.delete("/purchase-orders/{order_id}")
+async def delete_purchase_order(
+    order_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف أمر شراء - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه حذف أوامر الشراء")
+    
+    # Find the order
+    order = await db.purchase_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
+    
+    # Delete the order
+    await db.purchase_orders.delete_one({"id": order_id})
+    
+    # Delete related delivery records
+    await db.delivery_records.delete_many({"order_id": order_id})
+    
+    # Log audit
+    await log_audit(
+        entity_type="order",
+        entity_id=order_id,
+        action="delete",
+        user=current_user,
+        description=f"حذف أمر الشراء - المورد: {order.get('supplier_name', 'غير محدد')}"
+    )
+    
+    # Check if there are other orders for the same request
+    # If no more orders, update request status back to approved
+    request_id = order.get("request_id")
+    if request_id:
+        remaining_orders = await db.purchase_orders.count_documents({"request_id": request_id})
+        if remaining_orders == 0:
+            await db.material_requests.update_one(
+                {"id": request_id},
+                {"$set": {"status": RequestStatus.APPROVED_BY_ENGINEER}}
+            )
+    
+    return {"message": "تم حذف أمر الشراء بنجاح"}
+
+@api_router.delete("/requests/{request_id}")
+async def delete_material_request(
+    request_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف طلب مواد - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه حذف الطلبات")
+    
+    # Find the request
+    request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    
+    # Delete related purchase orders first
+    orders = await db.purchase_orders.find({"request_id": request_id}, {"_id": 0, "id": 1}).to_list(100)
+    order_ids = [o["id"] for o in orders]
+    
+    if order_ids:
+        await db.purchase_orders.delete_many({"request_id": request_id})
+        await db.delivery_records.delete_many({"order_id": {"$in": order_ids}})
+    
+    # Delete the request
+    await db.material_requests.delete_one({"id": request_id})
+    
+    # Log audit
+    await log_audit(
+        entity_type="request",
+        entity_id=request_id,
+        action="delete",
+        user=current_user,
+        description=f"حذف طلب المواد - المشروع: {request.get('project_name', 'غير محدد')}"
+    )
+    
+    return {
+        "message": "تم حذف الطلب بنجاح",
+        "deleted_orders": len(order_ids)
+    }
+
+@api_router.delete("/admin/clean-all-data")
+async def clean_all_data(
+    keep_user_email: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """حذف جميع البيانات ما عدا مستخدم معين - مدير المشتريات فقط"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه تنظيف البيانات")
+    
+    # Find the user to keep
+    user_to_keep = await db.users.find_one({"email": keep_user_email}, {"_id": 0})
+    if not user_to_keep:
+        raise HTTPException(status_code=404, detail=f"المستخدم {keep_user_email} غير موجود")
+    
+    deleted_counts = {
+        "users": 0,
+        "requests": 0,
+        "orders": 0,
+        "deliveries": 0,
+        "projects": 0,
+        "suppliers": 0,
+        "categories": 0,
+        "default_categories": 0,
+        "catalog_items": 0,
+        "item_aliases": 0,
+        "audit_logs": 0
+    }
+    
+    # Delete all users except the one to keep
+    result = await db.users.delete_many({"email": {"$ne": keep_user_email}})
+    deleted_counts["users"] = result.deleted_count
+    
+    # Delete all material requests
+    result = await db.material_requests.delete_many({})
+    deleted_counts["requests"] = result.deleted_count
+    
+    # Delete all purchase orders
+    result = await db.purchase_orders.delete_many({})
+    deleted_counts["orders"] = result.deleted_count
+    
+    # Delete all delivery records
+    result = await db.delivery_records.delete_many({})
+    deleted_counts["deliveries"] = result.deleted_count
+    
+    # Delete all projects
+    result = await db.projects.delete_many({})
+    deleted_counts["projects"] = result.deleted_count
+    
+    # Delete all suppliers
+    result = await db.suppliers.delete_many({})
+    deleted_counts["suppliers"] = result.deleted_count
+    
+    # Delete all budget categories
+    result = await db.budget_categories.delete_many({})
+    deleted_counts["categories"] = result.deleted_count
+    
+    # Delete all default budget categories
+    result = await db.default_budget_categories.delete_many({})
+    deleted_counts["default_categories"] = result.deleted_count
+    
+    # Delete all catalog items
+    result = await db.price_catalog.delete_many({})
+    deleted_counts["catalog_items"] = result.deleted_count
+    
+    # Delete all item aliases
+    result = await db.item_aliases.delete_many({})
+    deleted_counts["item_aliases"] = result.deleted_count
+    
+    # Delete all audit logs
+    result = await db.audit_logs.delete_many({})
+    deleted_counts["audit_logs"] = result.deleted_count
+    
+    # Log the action (this log will be the first in the clean system)
+    await log_audit(
+        entity_type="system",
+        entity_id="clean",
+        action="clean_all_data",
+        user=current_user,
+        description=f"تم تنظيف جميع البيانات - المستخدم المحتفظ به: {keep_user_email}"
+    )
+    
+    return {
+        "message": "تم تنظيف جميع البيانات بنجاح",
+        "kept_user": keep_user_email,
+        "deleted": deleted_counts
+    }
+
 # ==================== AUDIT TRAIL ROUTES ====================
 
 @api_router.get("/audit-logs")
