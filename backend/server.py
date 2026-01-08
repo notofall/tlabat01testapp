@@ -721,43 +721,13 @@ async def send_email_notification(to_email: str, subject: str, content: str):
 
 # ==================== AUTH ROUTES ====================
 
+# التسجيل المباشر معطل - يجب على المدير إنشاء المستخدمين
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
-    # Check if user exists
-    existing_user = await db.users.find_one({"email": user_data.email})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="البريد الإلكتروني مسجل مسبقاً")
-    
-    # Validate role
-    valid_roles = [UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.PROCUREMENT_MANAGER, UserRole.PRINTER, UserRole.DELIVERY_TRACKER, UserRole.GENERAL_MANAGER]
-    if user_data.role not in valid_roles:
-        raise HTTPException(status_code=400, detail="الدور غير صالح")
-    
-    # Create user
-    user_id = str(uuid.uuid4())
-    hashed_password = get_password_hash(user_data.password)
-    
-    user_doc = {
-        "id": user_id,
-        "name": user_data.name,
-        "email": user_data.email,
-        "password": hashed_password,
-        "role": user_data.role,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.users.insert_one(user_doc)
-    
-    access_token = create_access_token({"sub": user_id})
-    
-    return TokenResponse(
-        access_token=access_token,
-        user=UserResponse(
-            id=user_id,
-            name=user_data.name,
-            email=user_data.email,
-            role=user_data.role
-        )
+    """التسجيل معطل - استخدم صفحة الإعداد الأولي أو اطلب من المدير إنشاء حساب"""
+    raise HTTPException(
+        status_code=403, 
+        detail="التسجيل المباشر غير متاح. يرجى التواصل مع مدير المشتريات لإنشاء حساب"
     )
 
 @api_router.post("/auth/login", response_model=TokenResponse)
