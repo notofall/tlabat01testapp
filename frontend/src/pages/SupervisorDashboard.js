@@ -57,6 +57,12 @@ const SupervisorDashboard = () => {
   const [newProject, setNewProject] = useState({ name: "", owner_name: "", description: "", location: "" });
   const [editingProject, setEditingProject] = useState(null);
 
+  // Catalog suggestions state - اقتراحات الكتالوج
+  const [catalogSuggestions, setCatalogSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [selectedCatalogItem, setSelectedCatalogItem] = useState(null);
+
   // Edit form state
   const [editItems, setEditItems] = useState([]);
   const [editNewItemName, setEditNewItemName] = useState("");
