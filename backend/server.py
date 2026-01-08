@@ -406,6 +406,79 @@ class AttachmentResponse(BaseModel):
     uploaded_by_name: str
     uploaded_at: str
 
+# ==================== SYSTEM SETTINGS MODELS ====================
+
+class SystemSettingUpdate(BaseModel):
+    value: str  # القيمة كنص (يتم تحويلها حسب نوع الإعداد)
+
+class SystemSettingResponse(BaseModel):
+    id: str
+    key: str
+    value: str
+    description: str
+    updated_by: Optional[str] = None
+    updated_by_name: Optional[str] = None
+    updated_at: Optional[str] = None
+
+# ==================== PRICE CATALOG MODELS ====================
+
+class PriceCatalogCreate(BaseModel):
+    name: str  # اسم الصنف الرسمي
+    description: Optional[str] = None
+    unit: str = "قطعة"  # الوحدة
+    supplier_id: Optional[str] = None  # المورد المفضل
+    supplier_name: Optional[str] = None
+    price: float  # السعر المعتمد
+    currency: str = "SAR"  # العملة
+    validity_until: Optional[str] = None  # تاريخ انتهاء السعر
+    category_id: Optional[str] = None  # تصنيف الميزانية
+
+class PriceCatalogUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    unit: Optional[str] = None
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+    validity_until: Optional[str] = None
+    category_id: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class PriceCatalogResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    unit: str
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    price: float
+    currency: str
+    validity_until: Optional[str] = None
+    category_id: Optional[str] = None
+    category_name: Optional[str] = None
+    is_active: bool = True
+    created_by: str
+    created_by_name: str
+    created_at: str
+    updated_at: Optional[str] = None
+
+# ==================== ITEM ALIASES MODELS ====================
+
+class ItemAliasCreate(BaseModel):
+    alias_name: str  # الاسم الذي أدخله المشرف
+    catalog_item_id: str  # معرف الصنف في الكتالوج
+
+class ItemAliasResponse(BaseModel):
+    id: str
+    alias_name: str  # الاسم البديل
+    catalog_item_id: str  # معرف الصنف في الكتالوج
+    catalog_item_name: Optional[str] = None  # اسم الصنف الرسمي
+    usage_count: int = 0  # عدد مرات الاستخدام
+    created_by: str
+    created_by_name: str
+    created_at: str
+
 # ==================== HELPER FUNCTIONS ====================
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
