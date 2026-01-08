@@ -2810,6 +2810,169 @@ const ProcurementDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* Reports View - التقارير */}
+          {catalogViewMode === "reports" && (
+            <div className="space-y-4">
+              {reportsLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-orange-600" />
+                  <p className="text-slate-500 mt-2">جاري تحميل التقارير...</p>
+                </div>
+              ) : reportsData ? (
+                <>
+                  {/* Cost Savings Summary */}
+                  <div className="border rounded-lg p-4 bg-gradient-to-l from-green-50 to-emerald-50">
+                    <h4 className="font-bold text-lg text-green-800 mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      تقرير توفير التكاليف
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">التقديري</p>
+                        <p className="text-lg font-bold text-slate-700">
+                          {reportsData.savings.summary.total_estimated?.toLocaleString() || 0} ر.س
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">الفعلي</p>
+                        <p className="text-lg font-bold text-blue-600">
+                          {reportsData.savings.summary.total_actual?.toLocaleString() || 0} ر.س
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">التوفير</p>
+                        <p className={`text-lg font-bold ${reportsData.savings.summary.total_saving >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {reportsData.savings.summary.total_saving?.toLocaleString() || 0} ر.س
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">نسبة التوفير</p>
+                        <p className={`text-lg font-bold ${reportsData.savings.summary.saving_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {reportsData.savings.summary.saving_percent || 0}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Catalog Usage */}
+                  <div className="border rounded-lg p-4 bg-gradient-to-l from-blue-50 to-indigo-50">
+                    <h4 className="font-bold text-lg text-blue-800 mb-3 flex items-center gap-2">
+                      <Package className="w-5 h-5" />
+                      استخدام الكتالوج
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">أصناف الكتالوج</p>
+                        <p className="text-xl font-bold text-slate-700">{reportsData.usage.summary.total_catalog_items}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">مستخدمة</p>
+                        <p className="text-xl font-bold text-green-600">{reportsData.usage.summary.items_with_usage}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">غير مستخدمة</p>
+                        <p className="text-xl font-bold text-amber-600">{reportsData.usage.summary.unused_items}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-xs text-slate-500">نسبة استخدام الكتالوج</p>
+                        <p className="text-xl font-bold text-blue-600">
+                          {reportsData.savings.summary.catalog_usage_percent || 0}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Most Used Items */}
+                    {reportsData.usage.most_used_items?.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-sm font-medium text-slate-600 mb-2">الأصناف الأكثر استخداماً:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {reportsData.usage.most_used_items.slice(0, 5).map((item, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {item.name} ({item.usage_count})
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Supplier Performance */}
+                  {reportsData.suppliers?.suppliers?.length > 0 && (
+                    <div className="border rounded-lg p-4 bg-gradient-to-l from-purple-50 to-pink-50">
+                      <h4 className="font-bold text-lg text-purple-800 mb-3 flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        أداء الموردين
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-right p-2">المورد</th>
+                              <th className="text-right p-2">الطلبات</th>
+                              <th className="text-right p-2">القيمة</th>
+                              <th className="text-right p-2">معدل التسليم</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsData.suppliers.suppliers.slice(0, 5).map((supplier, idx) => (
+                              <tr key={idx} className="border-b last:border-0">
+                                <td className="p-2 font-medium">{supplier.supplier_name}</td>
+                                <td className="p-2">{supplier.orders_count}</td>
+                                <td className="p-2 text-green-600">{supplier.total_value?.toLocaleString()} ر.س</td>
+                                <td className="p-2">
+                                  <Badge variant={supplier.delivery_rate >= 80 ? "default" : "secondary"}>
+                                    {supplier.delivery_rate}%
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Import Section */}
+                  <div className="border rounded-lg p-4 bg-slate-50">
+                    <h4 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      استيراد أصناف للكتالوج
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="file"
+                        accept=".xlsx,.csv"
+                        onChange={(e) => setImportFile(e.target.files[0])}
+                        className="text-sm border rounded px-2 py-1 flex-1"
+                      />
+                      <Button 
+                        size="sm" 
+                        onClick={handleImportCatalog}
+                        disabled={!importFile || importLoading}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 ml-1" />}
+                        استيراد
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={downloadTemplate}>
+                        <Download className="w-4 h-4 ml-1" />
+                        تحميل القالب
+                      </Button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      صيغ مدعومة: Excel (.xlsx) أو CSV (.csv)
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>اضغط على "التقارير" لتحميل البيانات</p>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
