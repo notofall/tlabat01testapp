@@ -3348,7 +3348,7 @@ const ProcurementDashboard = () => {
               ) : (
                 <div className="text-center py-8 text-slate-500">
                   <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>اضغط على "التقارير" لتحميل البيانات</p>
+                  <p>اضغط على التقارير لتحميل البيانات</p>
                 </div>
               )}
             </div>
