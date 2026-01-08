@@ -627,7 +627,7 @@ const ProcurementDashboard = () => {
   };
 
   const handleApplyDefaultCategoriesToProject = async (projectId) => {
-    try:
+    try {
       const res = await axios.post(`${API_URL}/default-budget-categories/apply-to-project/${projectId}`, {}, getAuthHeaders());
       toast.success(res.data.message);
       fetchData();
