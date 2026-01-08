@@ -1635,18 +1635,21 @@ const ProcurementDashboard = () => {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">المورد</Label>
                     <div className="flex gap-2">
-                      <select 
-                        value={selectedSupplierId}
-                        onChange={(e) => {
-                          setSelectedSupplierId(e.target.value);
-                          const supplier = suppliers.find(s => s.id === e.target.value);
-                          if (supplier) setSupplierName(supplier.name);
-                        }}
-                        className="flex-1 h-10 border rounded-lg bg-white px-3 text-sm"
-                      >
-                        <option value="">-- اختر من القائمة --</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
+                      <div className="flex-1">
+                        <SearchableSelect
+                          options={suppliers}
+                          value={selectedSupplierId}
+                          onChange={(value, supplier) => {
+                            setSelectedSupplierId(value);
+                            if (supplier) setSupplierName(supplier.name);
+                            else setSupplierName("");
+                          }}
+                          placeholder="اختر من القائمة"
+                          searchPlaceholder="ابحث في الموردين..."
+                          displayKey="name"
+                          valueKey="id"
+                        />
+                      </div>
                       <Button type="button" variant="outline" size="sm" onClick={() => setSupplierDialogOpen(true)} className="h-10 px-3">
                         <Plus className="w-4 h-4" />
                       </Button>
