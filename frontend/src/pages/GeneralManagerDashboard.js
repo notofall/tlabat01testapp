@@ -397,11 +397,12 @@ export default function GeneralManagerDashboard() {
                   <p className="text-xs sm:text-sm text-slate-500">رقم الطلب</p>
                   <p className="font-medium">{selectedOrder.request_number || selectedOrder.id.slice(0, 8)}</p>
                 </div>
-                  <p className="text-sm text-slate-500">المشروع</p>
+                <div>
+                  <p className="text-xs sm:text-sm text-slate-500">المشروع</p>
                   <p className="font-medium">{selectedOrder.project_name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">المورد</p>
+                  <p className="text-xs sm:text-sm text-slate-500">المورد</p>
                   <p className="font-medium">{selectedOrder.supplier_name}</p>
                 </div>
                 <div>
