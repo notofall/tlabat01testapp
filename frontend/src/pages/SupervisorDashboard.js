@@ -269,6 +269,8 @@ const SupervisorDashboard = () => {
     setNewItemQty("");
     setNewItemUnit("قطعة");
     setNewItemEstPrice("");
+    setSelectedCatalogItem(null);
+    setShowSuggestions(false);
     toast.success("تم إضافة الصنف");
   };
 
@@ -303,6 +305,9 @@ const SupervisorDashboard = () => {
     setReason("");
     setEngineerId("");
     setExpectedDeliveryDate("");
+    setSelectedCatalogItem(null);
+    setCatalogSuggestions([]);
+    setShowSuggestions(false);
   };
 
   // Project management functions
