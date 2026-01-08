@@ -1826,11 +1826,15 @@ async def create_purchase_order(
     selected_items = []
     total_amount = 0
     item_prices_map = {}
+    catalog_items_map = {}
     
-    # Create price lookup from item_prices
+    # Create price and catalog lookup from item_prices
     if order_data.item_prices:
         for price_item in order_data.item_prices:
-            item_prices_map[price_item.get("index", -1)] = price_item.get("unit_price", 0)
+            idx = price_item.get("index", -1)
+            item_prices_map[idx] = price_item.get("unit_price", 0)
+            if price_item.get("catalog_item_id"):
+                catalog_items_map[idx] = price_item.get("catalog_item_id")
     
     for idx in order_data.selected_items:
         if 0 <= idx < len(all_items):
@@ -1848,6 +1852,7 @@ async def create_purchase_order(
             item_data["unit_price"] = unit_price
             item_data["total_price"] = item_total
             item_data["delivered_quantity"] = 0
+            item_data["catalog_item_id"] = catalog_items_map.get(idx)  # ربط الصنف بالكتالوج
             
             selected_items.append(item_data)
             total_amount += item_total
