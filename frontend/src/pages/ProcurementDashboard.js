@@ -2452,6 +2452,339 @@ const ProcurementDashboard = () => {
           </p>
         </DialogContent>
       </Dialog>
+
+      {/* Price Catalog & Aliases Dialog */}
+      <Dialog open={catalogDialogOpen} onOpenChange={setCatalogDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-orange-600" />
+              كتالوج الأسعار والأسماء البديلة
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mb-4">
+            <Button 
+              variant={catalogViewMode === "catalog" ? "default" : "outline"} 
+              size="sm"
+              onClick={() => { setCatalogViewMode("catalog"); fetchCatalog(catalogSearch, 1); }}
+            >
+              <Package className="w-4 h-4 ml-1" />
+              كتالوج الأسعار
+            </Button>
+            <Button 
+              variant={catalogViewMode === "aliases" ? "default" : "outline"} 
+              size="sm"
+              onClick={() => { setCatalogViewMode("aliases"); fetchAliases(aliasSearch); }}
+            >
+              <FileText className="w-4 h-4 ml-1" />
+              الأسماء البديلة
+            </Button>
+          </div>
+
+          {/* Catalog View */}
+          {catalogViewMode === "catalog" && (
+            <div className="space-y-4">
+              {/* Add New Item Form */}
+              <div className="border rounded-lg p-3 bg-slate-50">
+                <h4 className="font-medium text-sm mb-2">إضافة صنف جديد</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <Input 
+                    placeholder="اسم الصنف *"
+                    value={newCatalogItem.name}
+                    onChange={(e) => setNewCatalogItem({...newCatalogItem, name: e.target.value})}
+                  />
+                  <Input 
+                    placeholder="الوصف"
+                    value={newCatalogItem.description}
+                    onChange={(e) => setNewCatalogItem({...newCatalogItem, description: e.target.value})}
+                  />
+                  <Input 
+                    placeholder="الوحدة"
+                    value={newCatalogItem.unit}
+                    onChange={(e) => setNewCatalogItem({...newCatalogItem, unit: e.target.value})}
+                  />
+                  <Input 
+                    type="number"
+                    placeholder="السعر *"
+                    value={newCatalogItem.price}
+                    onChange={(e) => setNewCatalogItem({...newCatalogItem, price: e.target.value})}
+                  />
+                  <Input 
+                    placeholder="اسم المورد"
+                    value={newCatalogItem.supplier_name}
+                    onChange={(e) => setNewCatalogItem({...newCatalogItem, supplier_name: e.target.value})}
+                  />
+                  <select
+                    value={newCatalogItem.category_id}
+                    onChange={(e) => setNewCatalogItem({...newCatalogItem, category_id: e.target.value})}
+                    className="border rounded px-2 py-2 text-sm"
+                  >
+                    <option value="">-- التصنيف --</option>
+                    {defaultCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button onClick={handleCreateCatalogItem} size="sm" className="mt-2 bg-green-600 hover:bg-green-700">
+                  <Plus className="w-4 h-4 ml-1" />
+                  إضافة للكتالوج
+                </Button>
+              </div>
+
+              {/* Search */}
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="بحث في الكتالوج..."
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={() => fetchCatalog(catalogSearch, 1)} variant="outline">
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Items Table */}
+              {catalogLoading ? (
+                <div className="text-center py-4">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>الصنف</TableHead>
+                        <TableHead>الوحدة</TableHead>
+                        <TableHead>السعر</TableHead>
+                        <TableHead>المورد</TableHead>
+                        <TableHead>الإجراءات</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {catalogItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-slate-500">
+                            لا توجد أصناف في الكتالوج
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        catalogItems.map(item => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                {item.description && <p className="text-xs text-slate-500">{item.description}</p>}
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.unit}</TableCell>
+                            <TableCell className="font-medium text-green-600">
+                              {item.price?.toLocaleString()} ريال
+                            </TableCell>
+                            <TableCell>{item.supplier_name || "-"}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => setEditingCatalogItem({...item})}
+                                >
+                                  <Edit className="w-4 h-4 text-blue-600" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleDeleteCatalogItem(item.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Pagination */}
+              {catalogTotalPages > 1 && (
+                <div className="flex justify-between items-center">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={catalogPage === 1}
+                    onClick={() => { setCatalogPage(p => p-1); fetchCatalog(catalogSearch, catalogPage-1); }}
+                  >
+                    السابق
+                  </Button>
+                  <span className="text-sm text-slate-500">صفحة {catalogPage} من {catalogTotalPages}</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={catalogPage === catalogTotalPages}
+                    onClick={() => { setCatalogPage(p => p+1); fetchCatalog(catalogSearch, catalogPage+1); }}
+                  >
+                    التالي
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Aliases View */}
+          {catalogViewMode === "aliases" && (
+            <div className="space-y-4">
+              {/* Add New Alias Form */}
+              <div className="border rounded-lg p-3 bg-slate-50">
+                <h4 className="font-medium text-sm mb-2">ربط اسم بديل بصنف في الكتالوج</h4>
+                <p className="text-xs text-slate-500 mb-2">
+                  عندما يدخل المشرف اسم بديل، سيتم ربطه تلقائياً بالصنف الرسمي
+                </p>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="الاسم البديل (مثال: حديد 12)"
+                    value={newAlias.alias_name}
+                    onChange={(e) => setNewAlias({...newAlias, alias_name: e.target.value})}
+                    className="flex-1"
+                  />
+                  <select
+                    value={newAlias.catalog_item_id}
+                    onChange={(e) => setNewAlias({...newAlias, catalog_item_id: e.target.value})}
+                    className="border rounded px-2 py-2 text-sm flex-1"
+                  >
+                    <option value="">-- اختر الصنف الرسمي --</option>
+                    {catalogItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} - {item.price?.toLocaleString()} ريال
+                      </option>
+                    ))}
+                  </select>
+                  <Button onClick={handleCreateAlias} className="bg-green-600 hover:bg-green-700">
+                    <Plus className="w-4 h-4 ml-1" />
+                    ربط
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="بحث في الأسماء البديلة..."
+                  value={aliasSearch}
+                  onChange={(e) => setAliasSearch(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={() => fetchAliases(aliasSearch)} variant="outline">
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Aliases Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>الاسم البديل</TableHead>
+                      <TableHead>الصنف الرسمي</TableHead>
+                      <TableHead>عدد الاستخدام</TableHead>
+                      <TableHead>الإجراءات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {itemAliases.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-slate-500">
+                          لا توجد أسماء بديلة
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      itemAliases.map(alias => (
+                        <TableRow key={alias.id}>
+                          <TableCell className="font-medium">{alias.alias_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{alias.catalog_item_name || "غير معروف"}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{alias.usage_count || 0}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDeleteAlias(alias.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Catalog Item Dialog */}
+      {editingCatalogItem && (
+        <Dialog open={!!editingCatalogItem} onOpenChange={() => setEditingCatalogItem(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>تعديل صنف في الكتالوج</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>اسم الصنف</Label>
+                <Input 
+                  value={editingCatalogItem.name}
+                  onChange={(e) => setEditingCatalogItem({...editingCatalogItem, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label>الوصف</Label>
+                <Input 
+                  value={editingCatalogItem.description || ""}
+                  onChange={(e) => setEditingCatalogItem({...editingCatalogItem, description: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>الوحدة</Label>
+                  <Input 
+                    value={editingCatalogItem.unit}
+                    onChange={(e) => setEditingCatalogItem({...editingCatalogItem, unit: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>السعر</Label>
+                  <Input 
+                    type="number"
+                    value={editingCatalogItem.price}
+                    onChange={(e) => setEditingCatalogItem({...editingCatalogItem, price: parseFloat(e.target.value)})}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>المورد</Label>
+                <Input 
+                  value={editingCatalogItem.supplier_name || ""}
+                  onChange={(e) => setEditingCatalogItem({...editingCatalogItem, supplier_name: e.target.value})}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingCatalogItem(null)}>إلغاء</Button>
+                <Button onClick={handleUpdateCatalogItem} className="bg-orange-600 hover:bg-orange-700">حفظ</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
