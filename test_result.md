@@ -509,6 +509,18 @@ metadata:
         agent: "testing"
         comment: "CATALOG IMPORT/EXPORT AND REPORTS COMPREHENSIVE TESTING COMPLETED - 100% SUCCESS: ✅ Catalog Export APIs: Excel export (GET /api/price-catalog/export/excel) downloaded 5333 bytes successfully, CSV export (GET /api/price-catalog/export/csv) downloaded 6 rows successfully, Template download (GET /api/price-catalog/template) downloaded 5251 bytes successfully. Fixed route ordering issue where /price-catalog/{item_id} was conflicting with /price-catalog/template. ✅ Catalog Import API: POST /api/price-catalog/import successfully imported 4 new items from CSV with Arabic headers (اسم الصنف,السعر,الوحدة), no errors during import process. ✅ Cost Savings Report API: GET /api/reports/cost-savings returns complete summary with all required fields (total_estimated, total_actual, total_saving, saving_percent, items_from_catalog, items_not_in_catalog, catalog_usage_percent, orders_count), by_project array working, top_savings_items array working. ✅ Catalog Usage Report API: GET /api/reports/catalog-usage returns complete summary with all required fields (total_catalog_items, items_with_usage, unused_items, total_aliases, total_alias_usage), most_used_items array working, unused_items array working. ✅ Supplier Performance Report API: GET /api/reports/supplier-performance returns suppliers array with all required fields (supplier_name, orders_count, total_value, delivered_count, delivery_rate, on_time_rate), summary with total_suppliers, total_orders, total_value working correctly. ✅ Authorization Tests: Supervisor correctly denied access to all /api/reports/* endpoints (403), supervisor correctly denied access to catalog export/import endpoints (403), only procurement_manager can access these features. All 16 tests passed (100% success rate). All new catalog and reports features fully functional and ready for production use."
 
+  - task: "User Management System APIs"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "USER MANAGEMENT SYSTEM COMPREHENSIVE TESTING COMPLETED - 100% SUCCESS: ✅ Setup Check API: GET /api/setup/check returns {setup_required: false} correctly since manager exists. ✅ Admin Users List API: GET /api/admin/users returns list of 9 users with roles and assignments, only accessible to procurement_manager (403 for other roles). ✅ Create User API: POST /api/admin/users successfully created new supervisor user 'مشرف اختبار' with email test_supervisor@test.com, password 123456, role supervisor. ✅ Update User API: PUT /api/admin/users/{user_id} successfully updated user name to 'مشرف اختبار محدث'. ✅ Assign Projects & Engineers: PUT /api/admin/users/{user_id} successfully assigned 2 projects and 1 engineer to the test user. ✅ Reset Password API: POST /api/admin/users/{user_id}/reset-password successfully reset password to 'newpass123'. ✅ Toggle Active API: PUT /api/admin/users/{user_id}/toggle-active successfully disabled user (is_active: false), then re-enabled for cleanup. ✅ Disabled User Login Test: Login attempt with disabled user correctly returned 403 with Arabic error message 'تم تعطيل حسابك'. ✅ Authorization Test: Supervisor attempting to access GET /api/admin/users correctly denied with 403 Forbidden. ✅ Delete User API: DELETE /api/admin/users/{user_id} successfully removed test user from system. All 16 user management tests passed (100% success rate). Complete user management system fully functional with proper authorization controls and Arabic error messages."
+
   - task: "Mobile Responsiveness for All User Roles"
     implemented: true
     working: true
