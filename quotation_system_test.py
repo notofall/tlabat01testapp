@@ -520,26 +520,36 @@ class QuotationSystemTester:
         # 7. Test GM Approval Workflow
         print("\n🔄 Testing GM Approval Workflow...")
         
-        # Create high-value PO that requires GM approval
-        success, high_value_po_id = self.create_high_value_po(self.manager_token, 25000)
+        # Create high-value PO that requires GM approval (amount > approval limit)
+        success, high_value_po_id = self.create_high_value_po(self.manager_token, 26000)  # Above 25000 limit
         if success and high_value_po_id:
             print(f"   ✅ Created high-value PO: {high_value_po_id}")
             
-            # Check if PO status is pending_gm_approval
-            success, po_details = self.run_test(
-                "Check High-Value PO Status",
+            # Check if PO status is pending_gm_approval by getting it from the list
+            success, po_list = self.run_test(
+                "Get Purchase Orders to Check Status",
                 "GET",
-                f"purchase-orders/{high_value_po_id}",
+                "purchase-orders",
                 200,
                 headers={'Authorization': f'Bearer {self.manager_token}'}
             )
             
             if success:
-                po_status = po_details.get('status')
-                if po_status == 'pending_gm_approval':
-                    print("   ✅ High-value PO correctly set to pending_gm_approval")
+                # Find our PO in the list
+                target_po = None
+                for po in po_list:
+                    if po.get('id') == high_value_po_id:
+                        target_po = po
+                        break
+                
+                if target_po:
+                    po_status = target_po.get('status')
+                    if po_status == 'pending_gm_approval':
+                        print("   ✅ High-value PO correctly set to pending_gm_approval")
+                    else:
+                        print(f"   ❌ Expected pending_gm_approval, got: {po_status}")
                 else:
-                    print(f"   ❌ Expected pending_gm_approval, got: {po_status}")
+                    print("   ❌ Could not find created PO in the list")
             
             # Test GM approval
             success, _ = self.test_gm_approve_order(self.gm_token, high_value_po_id)
