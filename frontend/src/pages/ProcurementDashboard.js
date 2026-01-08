@@ -743,9 +743,13 @@ const ProcurementDashboard = () => {
     setExpectedDeliveryDate("");
     setSelectedItemIndices([]);
     setItemPrices({});
+    setCatalogPrices({});  // Reset catalog prices
     setSelectedCategoryId("");  // Reset category selection
     setLoadingItems(true);
     setOrderDialogOpen(true);
+    
+    // Fetch catalog items for linking
+    fetchCatalog("", 1);
     
     try {
       // Fetch remaining items from API
