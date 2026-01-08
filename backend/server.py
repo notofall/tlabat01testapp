@@ -138,6 +138,7 @@ class UserRole:
     PROCUREMENT_MANAGER = "procurement_manager"
     PRINTER = "printer"  # موظف الطباعة
     DELIVERY_TRACKER = "delivery_tracker"  # متابع التوريد
+    GENERAL_MANAGER = "general_manager"  # المدير العام - للموافقة على الطلبات الكبيرة
 
 class RequestStatus:
     PENDING_ENGINEER = "pending_engineer"
@@ -148,6 +149,7 @@ class RequestStatus:
 
 class PurchaseOrderStatus:
     PENDING_APPROVAL = "pending_approval"  # بانتظار اعتماد مدير المشتريات
+    PENDING_GM_APPROVAL = "pending_gm_approval"  # بانتظار موافقة المدير العام (للطلبات فوق الحد)
     APPROVED = "approved"  # معتمد - جاهز للطباعة
     PRINTED = "printed"  # تمت الطباعة
     SHIPPED = "shipped"  # تم الشحن
@@ -548,7 +550,7 @@ async def register(user_data: UserCreate):
         raise HTTPException(status_code=400, detail="البريد الإلكتروني مسجل مسبقاً")
     
     # Validate role
-    valid_roles = [UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.PROCUREMENT_MANAGER, UserRole.PRINTER, UserRole.DELIVERY_TRACKER]
+    valid_roles = [UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.PROCUREMENT_MANAGER, UserRole.PRINTER, UserRole.DELIVERY_TRACKER, UserRole.GENERAL_MANAGER]
     if user_data.role not in valid_roles:
         raise HTTPException(status_code=400, detail="الدور غير صالح")
     
