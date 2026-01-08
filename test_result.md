@@ -511,7 +511,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Quotation System Phase 1 - Backend Foundation"
+    - "Catalog Import/Export and Reports Features"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
