@@ -16,7 +16,7 @@ export default function SearchableSelect({
   renderOption,
   className = "",
   disabled = false,
-  maxHeight = "250px"
+  maxHeight = "200px"
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -77,16 +77,16 @@ export default function SearchableSelect({
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
-          flex items-center justify-between gap-2 px-3 py-2 border rounded-lg cursor-pointer
-          bg-white hover:border-orange-400 transition-colors text-sm
+          flex items-center justify-between gap-2 px-2 sm:px-3 py-2 border rounded-lg cursor-pointer
+          bg-white hover:border-orange-400 transition-colors text-xs sm:text-sm
           ${isOpen ? 'border-orange-500 ring-2 ring-orange-100' : 'border-slate-300'}
           ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}
         `}
       >
-        <span className={displayText ? 'text-slate-800' : 'text-slate-400'}>
+        <span className={`truncate ${displayText ? 'text-slate-800' : 'text-slate-400'}`}>
           {displayText || placeholder}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {value && !disabled && (
             <X 
               className="w-4 h-4 text-slate-400 hover:text-red-500" 
@@ -110,7 +110,7 @@ export default function SearchableSelect({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pr-8 pl-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-orange-400"
+                className="w-full pr-8 pl-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-md focus:outline-none focus:border-orange-400"
               />
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function SearchableSelect({
           {/* Options list */}
           <div className="overflow-y-auto" style={{ maxHeight }}>
             {filteredOptions.length === 0 ? (
-              <div className="p-4 text-center text-slate-500 text-sm">
+              <div className="p-3 sm:p-4 text-center text-slate-500 text-xs sm:text-sm">
                 {search ? `لا توجد نتائج لـ "${search}"` : 'لا توجد خيارات'}
               </div>
             ) : (
@@ -131,7 +131,7 @@ export default function SearchableSelect({
                     key={optValue || idx}
                     onClick={() => handleSelect(opt)}
                     className={`
-                      px-3 py-2 cursor-pointer text-sm transition-colors
+                      px-2 sm:px-3 py-2 cursor-pointer text-xs sm:text-sm transition-colors
                       ${isSelected ? 'bg-orange-50 text-orange-700' : 'hover:bg-slate-50'}
                     `}
                   >
@@ -144,7 +144,7 @@ export default function SearchableSelect({
             )}
             {filteredOptions.length > 100 && (
               <div className="p-2 text-center text-xs text-slate-400 border-t">
-                يظهر 100 من {filteredOptions.length} - استخدم البحث لتضييق النتائج
+                يظهر 100 من {filteredOptions.length} - استخدم البحث
               </div>
             )}
           </div>
