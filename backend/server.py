@@ -3643,6 +3643,36 @@ async def get_price_catalog(
         "total_pages": (total + page_size - 1) // page_size
     }
 
+@api_router.get("/price-catalog/template")
+async def get_catalog_import_template(current_user: dict = Depends(get_current_user)):
+    """تحميل قالب استيراد الكتالوج"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="غير مصرح لك")
+    
+    # Create template DataFrame
+    template_data = {
+        'اسم الصنف': ['حديد تسليح 12مم', 'اسمنت بورتلاندي', 'رمل ناعم'],
+        'الوصف': ['حديد تسليح قطر 12 مم', 'اسمنت بورتلاندي عادي', 'رمل ناعم للبناء'],
+        'الوحدة': ['طن', 'كيس', 'متر مكعب'],
+        'السعر': [2500, 25, 150],
+        'العملة': ['SAR', 'SAR', 'SAR'],
+        'المورد': ['مصنع الحديد', 'شركة الاسمنت', 'مورد الرمل']
+    }
+    
+    df = pd.DataFrame(template_data)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='قالب الكتالوج', index=False)
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=catalog_template.xlsx"}
+    )
+
 @api_router.get("/price-catalog/{item_id}")
 async def get_price_catalog_item(
     item_id: str,
