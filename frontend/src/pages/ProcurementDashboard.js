@@ -137,12 +137,18 @@ const ProcurementDashboard = () => {
     name: "", description: "", unit: "قطعة", price: "", supplier_name: "", category_id: ""
   });
   const [editingCatalogItem, setEditingCatalogItem] = useState(null);
-  const [catalogViewMode, setCatalogViewMode] = useState("catalog"); // "catalog" or "aliases"
+  const [catalogViewMode, setCatalogViewMode] = useState("catalog"); // "catalog", "aliases", or "reports"
   const [itemAliases, setItemAliases] = useState([]);
   const [aliasSearch, setAliasSearch] = useState("");
   const [newAlias, setNewAlias] = useState({ alias_name: "", catalog_item_id: "" });
   const [catalogPage, setCatalogPage] = useState(1);
   const [catalogTotalPages, setCatalogTotalPages] = useState(1);
+  
+  // Reports state - التقارير
+  const [reportsData, setReportsData] = useState(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importLoading, setImportLoading] = useState(false);
 
   const fetchData = async () => {
     try {
