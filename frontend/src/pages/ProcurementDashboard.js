@@ -2944,16 +2944,16 @@ const ProcurementDashboard = () => {
                       <input
                         type="file"
                         accept=".xlsx,.csv"
-                        onChange={(e) => setImportFile(e.target.files[0])}
+                        onChange={(e) => setCatalogFile(e.target.files[0])}
                         className="text-sm border rounded px-2 py-1 flex-1"
                       />
                       <Button 
                         size="sm" 
                         onClick={handleImportCatalog}
-                        disabled={!importFile || importLoading}
+                        disabled={!catalogFile || catalogImportLoading}
                         className="bg-green-600 hover:bg-green-700"
                       >
-                        {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 ml-1" />}
+                        {catalogImportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 ml-1" />}
                         استيراد
                       </Button>
                       <Button size="sm" variant="outline" onClick={downloadTemplate}>
