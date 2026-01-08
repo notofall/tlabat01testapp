@@ -1692,14 +1692,14 @@ const ProcurementDashboard = () => {
                   {selectedItemIndices.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">أسعار الأصناف المختارة</Label>
-                      <div className="space-y-2 bg-slate-50 p-3 rounded-lg max-h-60 overflow-y-auto">
+                      <div className="space-y-2 bg-slate-50 p-3 rounded-lg max-h-72 overflow-y-auto">
                         {selectedItemIndices.map(idx => {
                           const item = remainingItems.find(i => i.index === idx);
                           if (!item) return null;
                           const catalogInfo = catalogPrices[idx];
                           return (
-                            <div key={idx} className={`p-2 rounded border ${catalogInfo ? 'bg-green-50 border-green-200' : 'bg-white'}`}>
-                              <div className="flex items-center gap-2">
+                            <div key={idx} className={`p-3 rounded-lg border ${catalogInfo ? 'bg-green-50 border-green-200' : 'bg-white'}`}>
+                              <div className="flex items-center gap-2 mb-2">
                                 <div className="flex-1">
                                   <p className="text-sm font-medium">{item.name}</p>
                                   <p className="text-xs text-slate-500">{item.quantity} {item.unit}</p>
@@ -1711,26 +1711,86 @@ const ProcurementDashboard = () => {
                                   placeholder="السعر"
                                   value={itemPrices[idx] || ""}
                                   onChange={(e) => setItemPrices({...itemPrices, [idx]: e.target.value})}
-                                  className={`w-24 h-8 text-sm text-center ${catalogInfo ? 'border-green-300' : ''}`}
+                                  className={`w-28 h-8 text-sm text-center ${catalogInfo ? 'border-green-300 bg-green-50' : ''}`}
                                 />
                                 <span className="text-xs text-slate-500">ر.س</span>
+                              </div>
+                              
+                              {/* Catalog linking dropdown */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-600">ربط بالكتالوج:</span>
+                                <select
+                                  value={catalogInfo?.catalog_item_id || ""}
+                                  onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    if (selectedId) {
+                                      const catalogItem = catalogItems.find(c => c.id === selectedId);
+                                      if (catalogItem) {
+                                        setCatalogPrices(prev => ({
+                                          ...prev,
+                                          [idx]: {
+                                            catalog_item_id: catalogItem.id,
+                                            price: catalogItem.price,
+                                            name: catalogItem.name,
+                                            supplier_name: catalogItem.supplier_name
+                                          }
+                                        }));
+                                        setItemPrices(prev => ({
+                                          ...prev,
+                                          [idx]: catalogItem.price.toString()
+                                        }));
+                                        toast.success(`تم ربط "${item.name}" بـ "${catalogItem.name}" - السعر: ${catalogItem.price.toLocaleString()} ر.س`);
+                                      }
+                                    } else {
+                                      setCatalogPrices(prev => {
+                                        const newPrices = {...prev};
+                                        delete newPrices[idx];
+                                        return newPrices;
+                                      });
+                                    }
+                                  }}
+                                  className="flex-1 text-xs border rounded px-2 py-1 bg-white"
+                                >
+                                  <option value="">-- اختر صنف من الكتالوج --</option>
+                                  {catalogItems.map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                      {cat.name} - {cat.price?.toLocaleString()} ر.س {cat.supplier_name ? `(${cat.supplier_name})` : ''}
+                                    </option>
+                                  ))}
+                                </select>
                                 {!catalogInfo && (
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
                                     onClick={() => searchCatalogPrice(item.name, idx)}
-                                    className="text-blue-600 h-8 px-2"
-                                    title="بحث في الكتالوج"
+                                    className="text-blue-600 h-7 px-2"
+                                    title="بحث تلقائي"
                                   >
-                                    <Search className="w-4 h-4" />
+                                    <Search className="w-3 h-3" />
                                   </Button>
                                 )}
                               </div>
+                              
                               {catalogInfo && (
-                                <div className="mt-1 flex items-center gap-2 text-xs text-green-700">
-                                  <CheckCircle className="w-3 h-3" />
-                                  <span>من الكتالوج: {catalogInfo.name} - {catalogInfo.price?.toLocaleString()} ر.س</span>
-                                  {catalogInfo.supplier_name && <span className="text-slate-500">({catalogInfo.supplier_name})</span>}
+                                <div className="mt-2 flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-1 text-green-700">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>مربوط بـ: {catalogInfo.name}</span>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setCatalogPrices(prev => {
+                                        const newPrices = {...prev};
+                                        delete newPrices[idx];
+                                        return newPrices;
+                                      });
+                                    }}
+                                    className="text-red-500 h-6 px-1 text-xs"
+                                  >
+                                    إلغاء الربط
+                                  </Button>
                                 </div>
                               )}
                             </div>
