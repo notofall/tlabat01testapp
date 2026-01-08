@@ -940,6 +940,60 @@ const ProcurementDashboard = () => {
     }
   };
 
+  // Clean Data Dialog states
+  const [cleanDataDialogOpen, setCleanDataDialogOpen] = useState(false);
+  const [cleanDataLoading, setCleanDataLoading] = useState(false);
+  const [keepUserEmail, setKeepUserEmail] = useState("");
+
+  // Delete Purchase Order
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm("هل أنت متأكد من حذف أمر الشراء هذا؟ سيتم حذفه نهائياً.")) return;
+    
+    try {
+      await axios.delete(`${API_URL}/purchase-orders/${orderId}`, getAuthHeaders());
+      toast.success("تم حذف أمر الشراء بنجاح");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "فشل في حذف أمر الشراء");
+    }
+  };
+
+  // Delete Material Request
+  const handleDeleteRequest = async (requestId) => {
+    if (!window.confirm("هل أنت متأكد من حذف هذا الطلب؟ سيتم حذف جميع أوامر الشراء المرتبطة به أيضاً.")) return;
+    
+    try {
+      const res = await axios.delete(`${API_URL}/requests/${requestId}`, getAuthHeaders());
+      toast.success(res.data.message || "تم حذف الطلب بنجاح");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "فشل في حذف الطلب");
+    }
+  };
+
+  // Clean All Data
+  const handleCleanAllData = async () => {
+    if (!keepUserEmail.trim()) {
+      toast.error("الرجاء إدخال البريد الإلكتروني للمستخدم المراد الاحتفاظ به");
+      return;
+    }
+    
+    if (!window.confirm(`تحذير: سيتم حذف جميع البيانات نهائياً ما عدا المستخدم ${keepUserEmail}. هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟`)) return;
+    
+    setCleanDataLoading(true);
+    try {
+      const res = await axios.delete(`${API_URL}/admin/clean-all-data?keep_user_email=${encodeURIComponent(keepUserEmail)}`, getAuthHeaders());
+      toast.success(res.data.message || "تم تنظيف البيانات بنجاح");
+      setCleanDataDialogOpen(false);
+      setKeepUserEmail("");
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "فشل في تنظيف البيانات");
+    } finally {
+      setCleanDataLoading(false);
+    }
+  };
+
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const formatDateFull = (dateString) => new Date(dateString).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
   const formatCurrency = (amount) => `${(amount || 0).toLocaleString('ar-SA')} ر.س`;
