@@ -369,6 +369,8 @@ class PurchaseOrderUpdate(BaseModel):
 
 class PurchaseOrderResponse(BaseModel):
     id: str
+    order_number: Optional[str] = None  # رقم أمر الشراء التسلسلي (PO-001, PO-002...)
+    order_seq: Optional[int] = None  # الرقم التسلسلي
     request_id: str
     request_number: Optional[str] = None  # رقم الطلب المتسلسل (A1, A2, B1...)
     items: List[dict]  # Changed to dict to include prices
@@ -385,10 +387,13 @@ class PurchaseOrderResponse(BaseModel):
     supervisor_name: Optional[str] = None
     engineer_name: Optional[str] = None
     status: str  # pending_approval, approved, printed, shipped, delivered
+    needs_gm_approval: Optional[bool] = False  # هل يحتاج موافقة المدير العام
+    gm_approved_by_name: Optional[str] = None  # اسم المدير العام الذي وافق
     total_amount: float = 0  # المبلغ الإجمالي
     expected_delivery_date: Optional[str] = None
     created_at: str
     approved_at: Optional[str] = None
+    gm_approved_at: Optional[str] = None
     printed_at: Optional[str] = None
     shipped_at: Optional[str] = None
     delivered_at: Optional[str] = None
