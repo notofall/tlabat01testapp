@@ -4807,9 +4807,23 @@ async def gm_get_all_orders(
     query = {}
     if status:
         if status == "pending":
+            # الأوامر بانتظار موافقة المدير العام
             query["status"] = PurchaseOrderStatus.PENDING_GM_APPROVAL
+        elif status == "gm_approved":
+            # الأوامر التي اعتمدها المدير العام (تجاوزت الحد)
+            query["$and"] = [
+                {"status": {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.DELIVERED, PurchaseOrderStatus.PARTIALLY_DELIVERED]}},
+                {"needs_gm_approval": True}
+            ]
+        elif status == "procurement_approved":
+            # الأوامر التي اعتمدها مدير المشتريات مباشرة (لم تحتج موافقة GM)
+            query["$and"] = [
+                {"status": {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.DELIVERED, PurchaseOrderStatus.PARTIALLY_DELIVERED]}},
+                {"$or": [{"needs_gm_approval": False}, {"needs_gm_approval": {"$exists": False}}]}
+            ]
         elif status == "approved":
-            query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.DELIVERED, PurchaseOrderStatus.PARTIALLY_DELIVERED]}
+            # جميع الأوامر المعتمدة (للتوافق مع الكود القديم)
+            query["status"] = {"$in": [PurchaseOrderStatus.APPROVED, PurchaseOrderStatus.PRINTED, PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.DELIVERED, PurchaseOrderStatus.PARTIALLY_DELIVERED]}
         elif status == "rejected":
             query["status"] = "rejected_by_gm"
     
