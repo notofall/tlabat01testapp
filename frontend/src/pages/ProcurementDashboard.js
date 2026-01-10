@@ -1086,9 +1086,10 @@ const ProcurementDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
+      <header className="bg-slate-900 text-white sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-3 sm:px-6">
           <div className="flex items-center justify-between h-14">
+            {/* Logo & Title */}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-orange-600 rounded flex items-center justify-center">
                 <Package className="w-5 h-5" />
@@ -1098,27 +1099,29 @@ const ProcurementDashboard = () => {
                 <p className="text-xs text-slate-400">مدير المشتريات</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            
+            {/* Desktop Navigation - Hidden on Mobile */}
+            <div className="hidden lg:flex items-center gap-1">
               <Button variant="ghost" size="sm" onClick={() => setUserManagementOpen(true)} className="text-slate-300 hover:text-white h-8 px-2" title="إدارة المستخدمين">
-                <UserCog className="w-4 h-4 ml-1" /><span className="hidden sm:inline">المستخدمين</span>
+                <UserCog className="w-4 h-4 ml-1" />المستخدمين
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setBudgetDialogOpen(true)} className="text-slate-300 hover:text-white h-8 px-2">
-                <DollarSign className="w-4 h-4 ml-1" /><span className="hidden sm:inline">الميزانيات</span>
+                <DollarSign className="w-4 h-4 ml-1" />الميزانيات
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setSuppliersListDialogOpen(true)} className="text-slate-300 hover:text-white h-8 px-2">
-                <Users className="w-4 h-4 ml-1" /><span className="hidden sm:inline">الموردين</span>
+                <Users className="w-4 h-4 ml-1" />الموردين
               </Button>
               <Button variant="ghost" size="sm" onClick={openBackupDialog} className="text-slate-300 hover:text-white h-8 px-2" title="النسخ الاحتياطي">
-                <Database className="w-4 h-4 ml-1" /><span className="hidden sm:inline">نسخ احتياطي</span>
+                <Database className="w-4 h-4 ml-1" />نسخ احتياطي
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setExportDialogOpen(true)} className="text-green-400 hover:text-green-300 h-8 px-2" title="تصدير PDF">
-                <Download className="w-4 h-4 ml-1" /><span className="hidden sm:inline">تصدير</span>
+                <Download className="w-4 h-4 ml-1" />تصدير
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setCleanDataDialogOpen(true)} className="text-red-400 hover:text-red-300 h-8 px-2" title="تنظيف البيانات">
-                <Trash2 className="w-4 h-4 ml-1" /><span className="hidden sm:inline">تنظيف</span>
+                <Trash2 className="w-4 h-4 ml-1" />تنظيف
               </Button>
               <Button variant="ghost" size="sm" onClick={openCatalogDialog} className="text-slate-300 hover:text-white h-8 px-2" title="كتالوج الأسعار">
-                <Package className="w-4 h-4 ml-1" /><span className="hidden sm:inline">الكتالوج</span>
+                <Package className="w-4 h-4 ml-1" />الكتالوج
               </Button>
               <Button 
                 variant="ghost" 
@@ -1133,14 +1136,156 @@ const ProcurementDashboard = () => {
               <Button variant="ghost" size="sm" onClick={() => setPasswordDialogOpen(true)} className="text-slate-300 hover:text-white h-8 px-2">
                 <KeyRound className="w-4 h-4" />
               </Button>
-              <span className="text-xs sm:text-sm text-slate-300 hidden sm:inline">{user?.name}</span>
+              <span className="text-xs text-slate-300 mx-2">{user?.name}</span>
               <Button variant="ghost" size="sm" onClick={logout} className="text-slate-300 hover:text-white h-8 px-2">
                 <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {/* Mobile Navigation - Visible on Mobile/Tablet */}
+            <div className="flex lg:hidden items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleRefresh} 
+                disabled={refreshing}
+                className="text-slate-300 hover:text-white h-8 w-8 p-0"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setMobileMenuOpen(true)}
+                className="text-slate-300 hover:text-white h-8 w-8 p-0"
+              >
+                <Menu className="w-5 h-5" />
               </Button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Mobile Menu Drawer - القائمة الجانبية للجوال */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Overlay */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          {/* Drawer */}
+          <div className="absolute top-0 left-0 h-full w-72 bg-slate-900 shadow-2xl animate-in slide-in-from-left duration-300">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">نظام طلبات المواد</h2>
+                  <p className="text-xs text-slate-400">{user?.name}</p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-slate-400 hover:text-white h-8 w-8 p-0"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            {/* Drawer Content */}
+            <div className="p-3 space-y-1">
+              {/* إدارة البيانات */}
+              <p className="text-xs text-slate-500 px-3 py-2 font-medium">إدارة البيانات</p>
+              
+              <button 
+                onClick={() => { setUserManagementOpen(true); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <UserCog className="w-5 h-5 text-blue-400" />
+                <span className="text-sm">إدارة المستخدمين</span>
+              </button>
+              
+              <button 
+                onClick={() => { setBudgetDialogOpen(true); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <DollarSign className="w-5 h-5 text-green-400" />
+                <span className="text-sm">الميزانيات</span>
+              </button>
+              
+              <button 
+                onClick={() => { setSuppliersListDialogOpen(true); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Users className="w-5 h-5 text-purple-400" />
+                <span className="text-sm">الموردين</span>
+              </button>
+              
+              <button 
+                onClick={() => { openCatalogDialog(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Package className="w-5 h-5 text-orange-400" />
+                <span className="text-sm">كتالوج الأسعار</span>
+              </button>
+              
+              {/* التصدير والنسخ */}
+              <p className="text-xs text-slate-500 px-3 py-2 font-medium mt-4">التصدير والنسخ الاحتياطي</p>
+              
+              <button 
+                onClick={() => { setExportDialogOpen(true); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Download className="w-5 h-5 text-green-400" />
+                <span className="text-sm">تصدير التقارير PDF</span>
+              </button>
+              
+              <button 
+                onClick={() => { openBackupDialog(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Database className="w-5 h-5 text-cyan-400" />
+                <span className="text-sm">النسخ الاحتياطي</span>
+              </button>
+              
+              {/* إعدادات الحساب */}
+              <p className="text-xs text-slate-500 px-3 py-2 font-medium mt-4">إعدادات الحساب</p>
+              
+              <button 
+                onClick={() => { setPasswordDialogOpen(true); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <KeyRound className="w-5 h-5 text-yellow-400" />
+                <span className="text-sm">تغيير كلمة المرور</span>
+              </button>
+              
+              <button 
+                onClick={() => { setCleanDataDialogOpen(true); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-5 h-5 text-red-400" />
+                <span className="text-sm">تنظيف البيانات</span>
+              </button>
+            </div>
+            
+            {/* Drawer Footer */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
+              <button 
+                onClick={() => { logout(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="text-sm font-medium">تسجيل الخروج</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
         {/* Stats */}
