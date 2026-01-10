@@ -783,8 +783,8 @@ class MaterialRequestAPITester:
             print("❌ No engineer ID found")
             return False
 
-        # Create material request
-        success, request_id = self.test_create_material_request(self.manager_token, engineer_id)
+        # Create material request (supervisors create requests)
+        success, request_id = self.test_create_material_request(self.supervisor_token, engineer_id)
         if not success or not request_id:
             print("❌ Failed to create material request for testing")
             return False
