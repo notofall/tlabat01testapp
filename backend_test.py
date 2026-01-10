@@ -820,7 +820,7 @@ class MaterialRequestAPITester:
         print("\n🚫 Testing DELETE Purchase Order - Unauthorized (Supervisor)...")
         
         # Create another purchase order for unauthorized test
-        success, request_id2 = self.test_create_material_request(self.manager_token, engineer_id)
+        success, request_id2 = self.test_create_material_request(self.supervisor_token, engineer_id)
         if success and request_id2:
             if self.engineer_token:
                 self.test_approve_request(self.engineer_token, request_id2)
@@ -851,7 +851,7 @@ class MaterialRequestAPITester:
         print("\n🗑️ Testing DELETE Material Request - Authorized (PROCUREMENT_MANAGER)...")
         
         # Create a new request for deletion test
-        success, request_id3 = self.test_create_material_request(self.manager_token, engineer_id)
+        success, request_id3 = self.test_create_material_request(self.supervisor_token, engineer_id)
         if success and request_id3:
             # Create a purchase order for this request to test cascade deletion
             if self.engineer_token:
@@ -883,7 +883,7 @@ class MaterialRequestAPITester:
         print("\n🚫 Testing DELETE Material Request - Unauthorized (Supervisor)...")
         
         # Create another request for unauthorized test
-        success, request_id4 = self.test_create_material_request(self.manager_token, engineer_id)
+        success, request_id4 = self.test_create_material_request(self.supervisor_token, engineer_id)
         if success and request_id4 and self.supervisor_token:
             success, response = self.test_delete_material_request(
                 self.supervisor_token, 
