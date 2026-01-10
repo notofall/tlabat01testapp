@@ -125,13 +125,16 @@ class MaterialRequestAPITester:
                 "location": "الرياض"
             }
             
+            # Use supervisor token to create project (only supervisors can create projects)
+            supervisor_headers = {'Authorization': f'Bearer {self.supervisor_token}'} if hasattr(self, 'supervisor_token') and self.supervisor_token else headers
+            
             success, project_response = self.run_test(
                 "Create Project for Request",
                 "POST",
                 "projects",
                 200,
                 data=project_data,
-                headers=headers
+                headers=supervisor_headers
             )
             
             if success and project_response.get('id'):
