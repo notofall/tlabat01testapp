@@ -4904,6 +4904,7 @@ async def get_cost_savings_report(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     project_id: Optional[str] = None,
+    category_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """تقرير توفير التكاليف - مقارنة الأسعار التقديرية بأسعار الكتالوج"""
@@ -4921,6 +4922,8 @@ async def get_cost_savings_report(
             query["created_at"] = {"$lte": end_date}
     if project_id:
         query["project_id"] = project_id
+    if category_id:
+        query["category_id"] = category_id
     
     # Get all purchase orders
     orders = await db.purchase_orders.find(query, {"_id": 0}).to_list(10000)
@@ -4932,9 +4935,16 @@ async def get_cost_savings_report(
     items_not_in_catalog = 0
     savings_by_item = []
     savings_by_project = {}
+    savings_by_category = {}
+    
+    # Get categories for mapping
+    categories = await db.budget_categories.find({}, {"_id": 0}).to_list(1000)
+    categories_map = {c["id"]: c["name"] for c in categories}
     
     for order in orders:
         project_name = order.get("project_name", "غير محدد")
+        category_name = order.get("category_name") or categories_map.get(order.get("category_id"), "غير محدد")
+        
         if project_name not in savings_by_project:
             savings_by_project[project_name] = {
                 "estimated": 0,
@@ -4942,7 +4952,15 @@ async def get_cost_savings_report(
                 "orders_count": 0
             }
         
+        if category_name not in savings_by_category:
+            savings_by_category[category_name] = {
+                "estimated": 0,
+                "actual": 0,
+                "orders_count": 0
+            }
+        
         savings_by_project[project_name]["orders_count"] += 1
+        savings_by_category[category_name]["orders_count"] += 1
         
         for item in order.get("items", []):
             qty = float(item.get("quantity", 0))
@@ -4953,6 +4971,7 @@ async def get_cost_savings_report(
             item_total = unit_price * qty
             total_actual += item_total
             savings_by_project[project_name]["actual"] += item_total
+            savings_by_category[category_name]["actual"] += item_total
             
             if catalog_item_id:
                 items_from_catalog += 1
@@ -4968,6 +4987,7 @@ async def get_cost_savings_report(
                 estimated_total = estimated_price * qty
                 total_estimated += estimated_total
                 savings_by_project[project_name]["estimated"] += estimated_total
+                savings_by_category[category_name]["estimated"] += estimated_total
                 
                 saving = estimated_total - item_total
                 if saving != 0:
@@ -4978,7 +4998,8 @@ async def get_cost_savings_report(
                         "actual_total": item_total,
                         "saving": saving,
                         "saving_percent": round((saving / estimated_total) * 100, 1) if estimated_total > 0 else 0,
-                        "project": project_name
+                        "project": project_name,
+                        "category": category_name
                     })
     
     # Sort by savings amount
@@ -4999,6 +5020,21 @@ async def get_cost_savings_report(
     
     project_savings.sort(key=lambda x: x["saving"], reverse=True)
     
+    # Calculate category savings
+    category_savings = []
+    for category, data in savings_by_category.items():
+        saving = data["estimated"] - data["actual"]
+        category_savings.append({
+            "category": category,
+            "estimated": data["estimated"],
+            "actual": data["actual"],
+            "saving": saving,
+            "saving_percent": round((saving / data["estimated"]) * 100, 1) if data["estimated"] > 0 else 0,
+            "orders_count": data["orders_count"]
+        })
+    
+    category_savings.sort(key=lambda x: x["saving"], reverse=True)
+    
     total_saving = total_estimated - total_actual
     
     return {
@@ -5013,6 +5049,7 @@ async def get_cost_savings_report(
             "orders_count": len(orders)
         },
         "by_project": project_savings[:20],  # Top 20 projects
+        "by_category": category_savings[:20],  # Top 20 categories
         "top_savings_items": savings_by_item[:20],  # Top 20 items
         "top_losses_items": list(reversed(savings_by_item[-20:]))  # Top 20 losses
     }
