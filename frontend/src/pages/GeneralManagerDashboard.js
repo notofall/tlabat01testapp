@@ -394,6 +394,17 @@ export default function GeneralManagerDashboard() {
                       <span>{order.supplier_name}</span>
                       <span>{formatDate(order.created_at)}</span>
                     </div>
+                    {/* عرض من اعتمد الأمر */}
+                    {activeTab === 'gm_approved' && order.gm_approved_by_name && (
+                      <div className="text-xs text-purple-600 mb-2 bg-purple-50 rounded px-2 py-1">
+                        ✓ اعتمده: {order.gm_approved_by_name}
+                      </div>
+                    )}
+                    {activeTab === 'procurement_approved' && order.manager_name && (
+                      <div className="text-xs text-green-600 mb-2 bg-green-50 rounded px-2 py-1">
+                        ✓ اعتمده: {order.manager_name}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -404,7 +415,7 @@ export default function GeneralManagerDashboard() {
                         <Eye className="w-3 h-3 ml-1" />
                         تفاصيل
                       </Button>
-                      {activeTab === 'approved' && (
+                      {(activeTab === 'gm_approved' || activeTab === 'procurement_approved') && (
                         <Button
                           variant="outline"
                           size="sm"
