@@ -469,7 +469,7 @@ export default function GeneralManagerDashboard() {
                   <tbody className="divide-y divide-slate-100">
                     {currentOrders.map((order) => (
                       <tr key={order.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm text-slate-800 font-medium">{order.request_number || order.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3 text-sm text-slate-800 font-medium">{order.order_number || order.request_number || order.id.slice(0, 8)}</td>
                         <td className="px-4 py-3 text-sm text-slate-800">{order.project_name}</td>
                         <td className="px-4 py-3 text-sm text-slate-800">{order.supplier_name}</td>
                         <td className="px-4 py-3">
