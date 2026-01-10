@@ -1445,11 +1445,16 @@ const ProcurementDashboard = () => {
                             <span className="text-xs text-slate-400">{formatDate(req.created_at)}</span>
                             <div className="flex gap-1">
                               <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-7 w-7 p-0"><Eye className="w-3 h-3" /></Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleDeleteRequest(req.id)} className="h-7 w-7 p-0"><Trash2 className="w-3 h-3 text-red-600" /></Button>
                               {["approved_by_engineer", "partially_ordered"].includes(req.status) && (
-                                <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => openOrderDialog(req)}>
-                                  <ShoppingCart className="w-3 h-3 ml-1" />إصدار
-                                </Button>
+                                <>
+                                  <Button size="sm" variant="ghost" onClick={() => openRejectDialog(req)} className="h-7 w-7 p-0" title="رفض الطلب"><X className="w-3 h-3 text-red-600" /></Button>
+                                  <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => openOrderDialog(req)}>
+                                    <ShoppingCart className="w-3 h-3 ml-1" />إصدار
+                                  </Button>
+                                </>
+                              )}
+                              {req.status === "rejected_by_manager" && (
+                                <Badge variant="destructive" className="text-xs">مرفوض</Badge>
                               )}
                             </div>
                           </div>
