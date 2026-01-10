@@ -318,9 +318,19 @@ const EngineerDashboard = () => {
                                 </Button>
                               </>
                             )}
+                            {req.status === "rejected_by_manager" && (
+                              <Button size="sm" className="bg-orange-600 h-7 text-xs px-2" onClick={() => handleResubmit(req.id)} disabled={actionLoading}>
+                                <Send className="w-3 h-3 ml-1" />إعادة إرسال
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost" onClick={() => exportRequestToPDF(req)} className="h-7 w-7 p-0"><Download className="w-3 h-3 text-green-600" /></Button>
                           </div>
                         </div>
+                        {req.status === "rejected_by_manager" && req.manager_rejection_reason && (
+                          <div className="bg-orange-50 border border-orange-200 rounded p-2 text-xs text-orange-700">
+                            <strong>سبب الرفض:</strong> {req.manager_rejection_reason}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
