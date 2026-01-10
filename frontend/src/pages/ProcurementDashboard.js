@@ -1082,6 +1082,8 @@ const ProcurementDashboard = () => {
       approved_by_engineer: { label: "معتمد", color: "bg-green-100 text-green-800 border-green-300" },
       partially_ordered: { label: "جاري الإصدار", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
       purchase_order_issued: { label: "تم الإصدار", color: "bg-blue-100 text-blue-800 border-blue-300" },
+      rejected_by_manager: { label: "مرفوض - يحتاج تعديل", color: "bg-red-100 text-red-800 border-red-300" },
+      pending_engineer: { label: "بانتظار المهندس", color: "bg-amber-100 text-amber-800 border-amber-300" },
     };
     const info = map[status] || { label: status, color: "bg-slate-100 text-slate-800" };
     return <Badge className={`${info.color} border text-xs`}>{info.label}</Badge>;
