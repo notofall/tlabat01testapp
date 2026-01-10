@@ -718,6 +718,27 @@ async def get_next_request_number(supervisor_id: str) -> tuple:
     
     return prefix + str(next_seq), next_seq
 
+async def get_next_order_number() -> str:
+    """Get the next sequential order number for purchase orders (e.g., PO-001, PO-002...)"""
+    # Find the highest order sequence
+    last_order = await db.purchase_orders.find_one(
+        {"order_seq": {"$exists": True}},
+        {"order_seq": 1},
+        sort=[("order_seq", -1)]
+    )
+    
+    # Get next sequence number
+    if last_order and last_order.get("order_seq"):
+        next_seq = last_order["order_seq"] + 1
+    else:
+        # إذا لم توجد أوامر بتسلسل، نبدأ من 1
+        # لكن نتحقق من عدد الأوامر الموجودة لتجنب التكرار
+        total_orders = await db.purchase_orders.count_documents({})
+        next_seq = total_orders + 1
+    
+    # Format: PO-001, PO-002, ...
+    return f"PO-{next_seq:03d}", next_seq
+
 async def send_email_notification(to_email: str, subject: str, content: str):
     """Send email notification using SendGrid"""
     sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
