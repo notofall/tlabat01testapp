@@ -49,6 +49,8 @@ class MaterialRequestAPITester:
                 response = requests.post(url, json=data, headers=default_headers)
             elif method == 'PUT':
                 response = requests.put(url, json=data, headers=default_headers)
+            elif method == 'DELETE':
+                response = requests.delete(url, json=data, headers=default_headers)
 
             success = response.status_code == expected_status
             details = f"Status: {response.status_code}, Expected: {expected_status}"
