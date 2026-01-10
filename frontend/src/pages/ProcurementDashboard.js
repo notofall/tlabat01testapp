@@ -1485,11 +1485,16 @@ const ProcurementDashboard = () => {
                               <TableCell className="text-center">
                                 <div className="flex gap-1 justify-center">
                                   <Button size="sm" variant="ghost" onClick={() => { setSelectedRequest(req); setViewRequestDialogOpen(true); }} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                                  <Button size="sm" variant="ghost" onClick={() => handleDeleteRequest(req.id)} className="h-8 w-8 p-0" title="حذف الطلب"><Trash2 className="w-4 h-4 text-red-600" /></Button>
                                   {["approved_by_engineer", "partially_ordered"].includes(req.status) && (
-                                    <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => openOrderDialog(req)}>
-                                      <ShoppingCart className="w-4 h-4 ml-1" />إصدار
-                                    </Button>
+                                    <>
+                                      <Button size="sm" variant="ghost" onClick={() => openRejectDialog(req)} className="h-8 w-8 p-0" title="رفض الطلب"><X className="w-4 h-4 text-red-600" /></Button>
+                                      <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={() => openOrderDialog(req)}>
+                                        <ShoppingCart className="w-4 h-4 ml-1" />إصدار
+                                      </Button>
+                                    </>
+                                  )}
+                                  {req.status === "rejected_by_manager" && (
+                                    <Badge variant="destructive" className="text-xs">مرفوض - بانتظار المهندس</Badge>
                                   )}
                                 </div>
                               </TableCell>
