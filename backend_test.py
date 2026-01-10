@@ -744,10 +744,10 @@ class MaterialRequestAPITester:
             print("❌ Authentication failed for procurement manager")
             return False
 
-        # 3. Create test users for other roles
-        print("\n👥 Creating Test Users...")
+        # 3. Create test users for other roles or login if they exist
+        print("\n👥 Creating/Login Test Users...")
         
-        # Create supervisor
+        # Try to create supervisor, if exists just login
         supervisor_data = {
             "name": "مشرف اختبار",
             "email": "supervisor_test@test.com",
@@ -755,10 +755,12 @@ class MaterialRequestAPITester:
             "role": "supervisor"
         }
         success, _ = self.test_create_user(self.manager_token, supervisor_data, 200, "Create Test Supervisor")
-        if success:
-            self.supervisor_token = self.test_login("supervisor_test@test.com", "123456", "Test Supervisor")
+        if not success:
+            print("   Supervisor already exists, trying to login...")
         
-        # Create engineer
+        self.supervisor_token = self.test_login("supervisor_test@test.com", "123456", "Test Supervisor")
+        
+        # Try to create engineer, if exists just login
         engineer_data = {
             "name": "مهندس اختبار",
             "email": "engineer_test@test.com", 
@@ -766,8 +768,10 @@ class MaterialRequestAPITester:
             "role": "engineer"
         }
         success, _ = self.test_create_user(self.manager_token, engineer_data, 200, "Create Test Engineer")
-        if success:
-            self.engineer_token = self.test_login("engineer_test@test.com", "123456", "Test Engineer")
+        if not success:
+            print("   Engineer already exists, trying to login...")
+        
+        self.engineer_token = self.test_login("engineer_test@test.com", "123456", "Test Engineer")
 
         # 4. Create test data (request and purchase order)
         print("\n📋 Creating Test Data...")
