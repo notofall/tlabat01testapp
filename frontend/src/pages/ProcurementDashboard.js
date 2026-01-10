@@ -1381,6 +1381,17 @@ const ProcurementDashboard = () => {
               </Button>
               <Button 
                 size="sm" 
+                variant={requestViewMode === "rejected" ? "default" : "outline"}
+                onClick={() => setRequestViewMode("rejected")}
+                className={`h-8 text-xs ${requestViewMode === "rejected" ? "bg-red-600" : "text-red-700 border-red-300"}`}
+              >
+                مرفوض
+                <Badge className="mr-1 bg-red-500 text-white text-xs">
+                  {requests.filter(r => r.status === "rejected_by_manager").length}
+                </Badge>
+              </Button>
+              <Button 
+                size="sm" 
                 variant={requestViewMode === "ordered" ? "default" : "outline"}
                 onClick={() => setRequestViewMode("ordered")}
                 className={`h-8 text-xs ${requestViewMode === "ordered" ? "bg-blue-600" : "text-blue-700 border-blue-300"}`}
@@ -1412,6 +1423,7 @@ const ProcurementDashboard = () => {
                   if (requestViewMode === "pending") return req.status === "pending_engineer";
                   if (requestViewMode === "approved") return ["approved_by_engineer", "partially_ordered"].includes(req.status);
                   if (requestViewMode === "ordered") return req.status === "ordered";
+                  if (requestViewMode === "rejected") return req.status === "rejected_by_manager";
                   return true;
                 });
                 
