@@ -2163,6 +2163,127 @@ async def reject_request(
     
     return {"message": "تم رفض الطلب"}
 
+# رفض الطلب من مدير المشتريات - يعود للمهندس للتعديل
+@api_router.post("/requests/{request_id}/reject-by-manager")
+async def reject_request_by_manager(
+    request_id: str,
+    rejection_data: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """رفض طلب المواد من مدير المشتريات - يعود للمهندس للتعديل"""
+    if current_user["role"] != UserRole.PROCUREMENT_MANAGER:
+        raise HTTPException(status_code=403, detail="فقط مدير المشتريات يمكنه رفض الطلبات")
+    
+    request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    
+    # يمكن رفض الطلبات المعتمدة من المهندس فقط
+    if request["status"] not in [RequestStatus.APPROVED_BY_ENGINEER, RequestStatus.PARTIALLY_ORDERED]:
+        raise HTTPException(status_code=400, detail="لا يمكن رفض هذا الطلب - يجب أن يكون معتمداً من المهندس أولاً")
+    
+    rejection_reason = rejection_data.get("reason", "").strip()
+    if not rejection_reason:
+        raise HTTPException(status_code=400, detail="يرجى إدخال سبب الرفض")
+    
+    await db.material_requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "status": RequestStatus.REJECTED_BY_MANAGER,
+            "manager_rejection_reason": rejection_reason,
+            "rejected_by_manager_id": current_user["id"],
+            "rejected_by_manager_name": current_user["name"],
+            "rejected_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Log audit
+    await log_audit(
+        entity_type="request",
+        entity_id=request_id,
+        action="reject_by_manager",
+        user=current_user,
+        description=f"رفض الطلب - السبب: {rejection_reason}"
+    )
+    
+    # Notify engineer
+    engineer = await db.users.find_one({"id": request.get("engineer_id")}, {"_id": 0})
+    if engineer:
+        items_html = "".join([f"<li>{item['name']} - {item['quantity']} {item.get('unit', 'قطعة')}</li>" for item in request.get('items', [])])
+        email_content = f"""
+        <div dir="rtl" style="font-family: Arial, sans-serif;">
+            <h2>تم إرجاع طلب المواد للتعديل</h2>
+            <p>مرحباً {engineer['name']},</p>
+            <p>تم إرجاع طلب المواد التالي من مدير المشتريات ويحتاج إلى تعديل:</p>
+            <p><strong>المشروع:</strong> {request.get('project_name', '-')}</p>
+            <p><strong>المواد:</strong></p>
+            <ul>{items_html}</ul>
+            <p><strong>سبب الإرجاع:</strong> {rejection_reason}</p>
+            <p>يرجى مراجعة الطلب وإعادة إرساله بعد التعديل.</p>
+        </div>
+        """
+        await send_email_notification(
+            engineer["email"],
+            "طلب مواد يحتاج إلى تعديل",
+            email_content
+        )
+    
+    return {"message": "تم رفض الطلب وإعادته للمهندس للتعديل"}
+
+# إعادة إرسال الطلب المرفوض من المهندس
+@api_router.post("/requests/{request_id}/resubmit")
+async def resubmit_request(
+    request_id: str,
+    resubmit_data: dict = Body(default={}),
+    current_user: dict = Depends(get_current_user)
+):
+    """إعادة إرسال طلب مرفوض من مدير المشتريات"""
+    if current_user["role"] != UserRole.ENGINEER:
+        raise HTTPException(status_code=403, detail="فقط المهندس يمكنه إعادة إرسال الطلب")
+    
+    request = await db.material_requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    
+    # يمكن إعادة إرسال الطلبات المرفوضة من مدير المشتريات فقط
+    if request["status"] != RequestStatus.REJECTED_BY_MANAGER:
+        raise HTTPException(status_code=400, detail="لا يمكن إعادة إرسال هذا الطلب - يجب أن يكون مرفوضاً من مدير المشتريات")
+    
+    # التحقق من أن المهندس هو صاحب الطلب
+    if request.get("engineer_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="لا يمكنك إعادة إرسال طلب ليس لك")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # تحديث الطلب بتاريخ جديد وحالة جديدة
+    await db.material_requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "status": RequestStatus.APPROVED_BY_ENGINEER,  # يعود معتمداً من المهندس
+            "resubmitted_at": now,
+            "resubmit_count": request.get("resubmit_count", 0) + 1,
+            "updated_at": now,
+            "previous_rejection_reason": request.get("manager_rejection_reason", ""),
+            # مسح بيانات الرفض السابقة
+            "manager_rejection_reason": None,
+            "rejected_by_manager_id": None,
+            "rejected_by_manager_name": None,
+            "rejected_at": None
+        }}
+    )
+    
+    # Log audit
+    await log_audit(
+        entity_type="request",
+        entity_id=request_id,
+        action="resubmit",
+        user=current_user,
+        description=f"إعادة إرسال الطلب بعد التعديل"
+    )
+    
+    return {"message": "تم إعادة إرسال الطلب بنجاح"}
+
 # ==================== PURCHASE ORDERS ROUTES ====================
 
 @api_router.post("/purchase-orders", response_model=PurchaseOrderResponse)
