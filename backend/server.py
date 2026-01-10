@@ -667,7 +667,11 @@ async def migrate_order_numbers():
     next_seq = (last_order.get("order_seq", 0) if last_order else 0) + 1
     
     for order in orders_without_number:
-        order_number = f"PO-{next_seq:03d}"
+        # Format: 4 أرقام حتى 9999، ثم يزيد تلقائياً
+        if next_seq <= 9999:
+            order_number = f"PO-{next_seq:04d}"
+        else:
+            order_number = f"PO-{next_seq}"
         await db.purchase_orders.update_one(
             {"id": order["id"]},
             {"$set": {"order_number": order_number, "order_seq": next_seq}}
