@@ -1133,8 +1133,8 @@ def main():
     
     tester = MaterialRequestAPITester()
     
-    # Run password management test (as requested in review)
-    password_success = tester.run_password_management_test()
+    # Run DELETE APIs test (as requested in review)
+    delete_success = tester.run_delete_apis_test()
     
     # Print summary
     print("\n" + "=" * 70)
@@ -1153,7 +1153,7 @@ def main():
             print(f"  - {test['test']}: {test['details']}")
     
     # Return appropriate exit code
-    return 0 if password_success and tester.tests_passed == tester.tests_run else 1
+    return 0 if delete_success and tester.tests_passed == tester.tests_run else 1
 
 if __name__ == "__main__":
     sys.exit(main())
