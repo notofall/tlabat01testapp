@@ -2552,7 +2552,25 @@ async def approve_purchase_order(order_id: str, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="أمر الشراء غير موجود")
     
     if order["status"] != PurchaseOrderStatus.PENDING_APPROVAL:
-        raise HTTPException(status_code=400, detail="أمر الشراء تم اعتماده مسبقاً")
+        raise HTTPException(status_code=400, detail="أمر الشراء تم اعتماده مسبقاً أو يحتاج موافقة المدير العام")
+    
+    # التحقق من حد الموافقة قبل الاعتماد
+    total_amount = order.get("total_amount", 0)
+    approval_limit = await get_approval_limit()
+    
+    if total_amount > approval_limit:
+        # تحويل الأمر للمدير العام للموافقة
+        await db.purchase_orders.update_one(
+            {"id": order_id},
+            {"$set": {
+                "status": PurchaseOrderStatus.PENDING_GM_APPROVAL,
+                "needs_gm_approval": True
+            }}
+        )
+        return {
+            "message": f"قيمة الأمر ({total_amount:,.0f} ر.س) تتجاوز حد الموافقة ({approval_limit:,.0f} ر.س). تم تحويله للمدير العام للموافقة.",
+            "requires_gm_approval": True
+        }
     
     now = datetime.now(timezone.utc).isoformat()
     
