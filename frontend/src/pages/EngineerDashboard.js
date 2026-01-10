@@ -63,6 +63,7 @@ const EngineerDashboard = () => {
     pending: requests.filter(r => r.status === "pending_engineer").length,
     approved: requests.filter(r => r.status === "approved_by_engineer" || r.status === "partially_ordered").length,
     rejected: requests.filter(r => r.status === "rejected_by_engineer").length,
+    rejected_by_manager: requests.filter(r => r.status === "rejected_by_manager").length,
     ordered: requests.filter(r => r.status === "purchase_order_issued").length,
   };
   
@@ -72,6 +73,7 @@ const EngineerDashboard = () => {
       case "pending": return requests.filter(r => r.status === "pending_engineer");
       case "approved": return requests.filter(r => r.status === "approved_by_engineer" || r.status === "partially_ordered");
       case "rejected": return requests.filter(r => r.status === "rejected_by_engineer");
+      case "rejected_by_manager": return requests.filter(r => r.status === "rejected_by_manager");
       case "ordered": return requests.filter(r => r.status === "purchase_order_issued");
       default: return requests;
     }
