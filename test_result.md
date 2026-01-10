@@ -227,6 +227,7 @@ metadata:
 
 test_plan:
   current_focus:
+    - "DELETE APIs - Purchase Orders and Requests Deletion - COMPLETED"
     - "Authentication System - All aspects tested and working"
     - "User Management System - Complete CRUD operations tested"
     - "Material Requests Workflow - Creation and approval tested"
