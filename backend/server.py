@@ -190,6 +190,7 @@ class RequestStatus:
     PENDING_ENGINEER = "pending_engineer"
     APPROVED_BY_ENGINEER = "approved_by_engineer"
     REJECTED_BY_ENGINEER = "rejected_by_engineer"
+    REJECTED_BY_MANAGER = "rejected_by_manager"  # مرفوض من مدير المشتريات - يعود للمهندس
     PURCHASE_ORDER_ISSUED = "purchase_order_issued"
     PARTIALLY_ORDERED = "partially_ordered"  # تم إصدار بعض أوامر الشراء
 
