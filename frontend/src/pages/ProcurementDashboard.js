@@ -1108,6 +1108,9 @@ const ProcurementDashboard = () => {
               <Button variant="ghost" size="sm" onClick={openBackupDialog} className="text-slate-300 hover:text-white h-8 px-2" title="النسخ الاحتياطي">
                 <Database className="w-4 h-4 ml-1" /><span className="hidden sm:inline">نسخ احتياطي</span>
               </Button>
+              <Button variant="ghost" size="sm" onClick={() => setExportDialogOpen(true)} className="text-green-400 hover:text-green-300 h-8 px-2" title="تصدير PDF">
+                <Download className="w-4 h-4 ml-1" /><span className="hidden sm:inline">تصدير</span>
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => setCleanDataDialogOpen(true)} className="text-red-400 hover:text-red-300 h-8 px-2" title="تنظيف البيانات">
                 <Trash2 className="w-4 h-4 ml-1" /><span className="hidden sm:inline">تنظيف</span>
               </Button>
