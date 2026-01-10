@@ -1747,7 +1747,7 @@ const ProcurementDashboard = () => {
                         <TableBody>
                           {displayOrders.map((order) => (
                             <TableRow key={order.id} className={order.status === "delivered" ? "bg-emerald-50/30" : ""}>
-                              <TableCell className="font-mono text-orange-600 font-bold">{order.id?.slice(0, 8).toUpperCase()}</TableCell>
+                              <TableCell className="font-mono text-orange-600 font-bold">{order.order_number || order.id?.slice(0, 8).toUpperCase()}</TableCell>
                               <TableCell>{order.project_name}</TableCell>
                               <TableCell>{order.supplier_name}</TableCell>
                               <TableCell className="text-center font-bold text-emerald-600">{order.total_amount > 0 ? `${order.total_amount.toLocaleString('ar-SA')} ر.س` : '-'}</TableCell>
